@@ -1,0 +1,35 @@
+{
+    "version": "v1",
+    "date": "2026-04-29 12:17:51",
+    "metrics": {
+        "f1_macro": 0.5426601385434066,
+        "recall_detrator": 0.8108108108108109
+    },
+    "parameters": {
+        "n_estimators": 100,
+        "max_depth": 7,
+        "class_weight": "balanced"
+    },
+    "features": [
+        "customer_age",
+        "customer_tenure_months",
+        "order_value",
+        "items_quantity",
+        "discount_value",
+        "payment_installments",
+        "delivery_time_days",
+        "delivery_delay_days",
+        "freight_value",
+        "delivery_attempts",
+        "customer_service_contacts",
+        "resolution_time_days",
+        "complaints_count",
+        "ratio_atraso_entrega",
+        "custo_por_item",
+        "intensidade_problema",
+        "entrega_no_prazo",
+        "score_logistica",
+        "cliente_longa_data",
+        "pct_desconto"
+    ]
+}
