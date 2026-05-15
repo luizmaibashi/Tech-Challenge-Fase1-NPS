@@ -78,16 +78,17 @@ Com 84.4% de Detratores, um modelo que sempre prevê "Detrator" teria **84.4% de
 
 O modelo final foi encapsulado em um `sklearn.Pipeline`, garantindo que o `StandardScaler` seja aplicado automaticamente aos novos dados — eliminando o risco de inconsistências entre treino e produção.
 
-### 🚀 5. Modernização MLOps e Arquitetura de Produção
+### 🚀 5. Modernização MLOps, Cascaded Pipelines e Error Analysis (Stanford CS230)
 
-Recentemente, o projeto passou por uma **refatoração de arquitetura** para atingir padrões de produção (MLOps):
+Recentemente, o projeto passou por uma **refatoração de arquitetura** inspirada na mentalidade de **PM-Engineer** e nas práticas do curso de Stanford (CS230):
 
-*   **Modularização (utils.py):** Toda a lógica de Feature Engineering foi centralizada. Agora, o treino e a API utilizam o **mesmo código**, garantindo que o modelo preveja exatamente sobre o que aprendeu.
-*   **Pipeline Automatizado (train_pipeline.py):** Script independente para treinamento, versionamento e geração de metadados (`metadata.json`).
-*   **API-First (api.py):** Implementação de um backend em **FastAPI**, permitindo que o modelo seja consumido por qualquer sistema da empresa (CRM, ERP) via requisições HTTP, sem depender do frontend.
-*   **Monitoramento (monitor.py):** Camada de detecção de **Data Drift** para alertar sobre mudanças no perfil logístico que possam invalidar o modelo.
+*   **Cascaded Pipelines (`api.py`):** O modelo deixou de ser um monolito onde o algoritmo de Machine Learning analisa 100% dos casos. Adicionamos uma camada heurística de Filtro Rápido (ex: se o cliente tem 0 reclamações e recebeu no prazo, a inferência é finalizada instantaneamente). Isso economiza drasticamente o custo computacional (Cloud Cost).
+*   **Manual Error Analysis (`manual_error_analysis.py`):** Antes de testar milhares de hiperparâmetros às cegas, o script rastreia e exporta exatamente onde a arquitetura falhou em ~100 Falsos Negativos Críticos (previu Promotor, mas era Detrator). O PM-Engineer diagnostica a falha visualmente no CSV.
+*   **Modularização (`utils.py`):** Toda a lógica de Feature Engineering foi centralizada. O treino e a API utilizam o **mesmo código**, eliminando o risco de *Training-Serving Skew*.
+*   **API-First (`api.py`):** Backend em **FastAPI**, permitindo consumo por qualquer CRM sem depender de bibliotecas Python no cliente.
+*   **Monitoramento (`monitor.py`):** Camada de detecção de **Data Drift** para alertar sobre mudanças no comportamento logístico nacional.
 
-**Impacto no Negócio:** Essa estrutura reduz o tempo de resposta a mudanças no mercado e garante que a IA seja um ativo tecnológico auditável e confiável, não apenas um script isolado.
+**Impacto no Negócio:** O sistema deixa de ser um script acadêmico para se tornar uma arquitetura modular, escalável financeiramente e altamente auditável.
 
 ---
 
