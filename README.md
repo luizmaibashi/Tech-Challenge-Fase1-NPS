@@ -7,7 +7,6 @@
 [![CRISP-DM](https://img.shields.io/badge/Methodology-CRISP--DM-success?style=flat-square)](#)
 [![FIAP](https://img.shields.io/badge/FIAP-Pós--Graduação%20AI%20Scientist-blueviolet?style=flat-square)](#)
 
-![NPS Predictor AI Demo](assets/nps_demo.webp)
 
 > **Este projeto não se limita a treinar um modelo de Machine Learning.** Ele simula um ciclo completo de IA aplicada: diagnóstico do problema de negócio, análise exploratória com suporte estatístico, engenharia de features, modelagem sem *Data Leakage*, avaliação honesta com métricas adequadas ao desbalanceamento e, por fim, um **deploy funcional via Streamlit** com simulação de ROI financeiro em tempo real.
 
