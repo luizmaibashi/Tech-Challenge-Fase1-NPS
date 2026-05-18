@@ -47,6 +47,20 @@ def predict(pedido: PedidoInput):
         raise HTTPException(status_code=500, detail="Modelo não disponível no servidor.")
     
     try:
+        # 0. Stanford Cascaded Pipeline: Filtro Heurístico (Corta custos de inferência)
+        # Se entregou no prazo e não teve nenhuma reclamação ou contato no SAC, a chance de ser promotor é máxima.
+        if pedido.delivery_delay_days <= 0 and pedido.complaints_count == 0 and pedido.customer_service_contacts == 0:
+            return {
+                "prediction": 2,
+                "label": "Promotor",
+                "probabilities": {
+                    "Detrator": 0.0,
+                    "Neutro": 0.0,
+                    "Promotor": 1.0
+                },
+                "pipeline_route": "fast_heuristic_filter"
+            }
+
         # 1. Converter entrada para DataFrame
         df_input = pd.DataFrame([pedido.model_dump()])
         
@@ -69,7 +83,8 @@ def predict(pedido: PedidoInput):
                 "Detrator": probabilities[0],
                 "Neutro": probabilities[1],
                 "Promotor": probabilities[2]
-            }
+            },
+            "pipeline_route": "ml_model_v1"
         }
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
