@@ -8,7 +8,7 @@
 [![FIAP](https://img.shields.io/badge/FIAP-Pós--Graduação%20AI%20Scientist-blueviolet?style=flat-square)](#)
 
 
-> **Este projeto não se limita a treinar um modelo de Machine Learning.** Ele simula um ciclo completo de IA aplicada: diagnóstico do problema de negócio, análise exploratória com suporte estatístico, engenharia de features, modelagem sem *Data Leakage*, avaliação honesta com métricas adequadas ao desbalanceamento e, por fim, um **deploy funcional via Streamlit** com simulação de ROI financeiro em tempo real.
+> **O Foco deste Projeto: Explorar e Traduzir Dados em Estratégia.** Este projeto nasceu com foco em modelagem avançada e MLOps, mas foi **recalibrado** para destacar o que realmente importa na Fase 1: o entendimento do problema de negócio através de **Análise Exploratória de Dados (EDA)**, storytelling executivo e a tradução técnica para impacto financeiro. A modelagem atua como um forte complemento analítico, e não como o eixo principal.
 
 ---
 
@@ -78,17 +78,10 @@ Com 84.4% de Detratores, um modelo que sempre prevê "Detrator" teria **84.4% de
 
 O modelo final foi encapsulado em um `sklearn.Pipeline`, garantindo que o `StandardScaler` seja aplicado automaticamente aos novos dados — eliminando o risco de inconsistências entre treino e produção.
 
-### 🚀 5. Modernização MLOps, Cascaded Pipelines e Error Analysis (Stanford CS230)
+### 🚀 5. Tradução Visual e Storytelling (Em Evolução)
 
-Recentemente, o projeto passou por uma **refatoração de arquitetura** inspirada na mentalidade de **PM-Engineer** e nas práticas do curso de Stanford (CS230):
-
-*   **Cascaded Pipelines (`api.py`):** O modelo deixou de ser um monolito onde o algoritmo de Machine Learning analisa 100% dos casos. Adicionamos uma camada heurística de Filtro Rápido (ex: se o cliente tem 0 reclamações e recebeu no prazo, a inferência é finalizada instantaneamente). Isso economiza drasticamente o custo computacional (Cloud Cost).
-*   **Manual Error Analysis (`manual_error_analysis.py`):** Antes de testar milhares de hiperparâmetros às cegas, o script rastreia e exporta exatamente onde a arquitetura falhou em ~100 Falsos Negativos Críticos (previu Promotor, mas era Detrator). O PM-Engineer diagnostica a falha visualmente no CSV.
-*   **Modularização (`utils.py`):** Toda a lógica de Feature Engineering foi centralizada. O treino e a API utilizam o **mesmo código**, eliminando o risco de *Training-Serving Skew*.
-*   **API-First (`api.py`):** Backend em **FastAPI**, permitindo consumo por qualquer CRM sem depender de bibliotecas Python no cliente.
-*   **Monitoramento (`monitor.py`):** Camada de detecção de **Data Drift** para alertar sobre mudanças no comportamento logístico nacional.
-
-**Impacto no Negócio:** O sistema deixa de ser um script acadêmico para se tornar uma arquitetura modular, escalável financeiramente e altamente auditável.
+Com base no feedback de avaliação executiva, o projeto foca em afastar a linguagem de código ("delivery_delay_days", "complaints_count") e apresentar uma narrativa clara ("dias de atraso na entrega", "volume de reclamações"). 
+A modelagem de Machine Learning atua apenas como complemento (usando métricas robustas como F1-score e class_weight para classes desbalanceadas) e suporte para a análise exploratória e tomada de decisão estratégica. O produto de dados desenvolvido não busca substituir a análise humana, mas validar estatisticamente as hipóteses da EDA.
 
 ---
 
