@@ -41,3 +41,4 @@ desktop.ini
 # Arquivos temporários gerados
 notebook_content.md
 modelo_nps_v1/
+.env
