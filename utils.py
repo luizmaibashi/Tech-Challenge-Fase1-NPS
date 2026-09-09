@@ -7,7 +7,19 @@ def criar_features(df_input):
     Centraliza a lógica de criação de variáveis para garantir paridade entre Treino e Produção.
     """
     df = df_input.copy()
-    
+
+    # Contrato: items_quantity é divisor em custo_por_item (Feature 2). Sem
+    # essa validação, items_quantity=0 produz inf silenciosamente — padrão
+    # de guarda silenciosa desqualificado pelo AGENTS.md. Validado aqui (não
+    # só na API) porque este módulo também é chamado por notebook/Streamlit,
+    # que não passam pelo Pydantic da API.
+    if (df['items_quantity'] <= 0).any():
+        linhas_invalidas = df.index[df['items_quantity'] <= 0].tolist()
+        raise ValueError(
+            f"items_quantity deve ser > 0 (pedido precisa ter ao menos 1 item). "
+            f"Linhas inválidas: {linhas_invalidas}"
+        )
+
     # Feature 1: Ratio de atraso em relação ao prazo (Atraso Relativo)
     # Por que: 3 dias de atraso em 5 dias de prazo é pior que em 20 dias.
     df['ratio_atraso_entrega'] = df['delivery_delay_days'] / (df['delivery_time_days'] + 1)

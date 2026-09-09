@@ -1,5 +1,5 @@
 from fastapi import FastAPI, HTTPException
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 import joblib
 import pandas as pd
 import uvicorn
@@ -26,7 +26,7 @@ class PedidoInput(BaseModel):
     customer_age: int
     customer_tenure_months: int
     order_value: float
-    items_quantity: int
+    items_quantity: int = Field(gt=0, description="Pedido precisa ter ao menos 1 item")
     discount_value: float
     payment_installments: int
     delivery_time_days: int

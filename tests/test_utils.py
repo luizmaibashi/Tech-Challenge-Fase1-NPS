@@ -10,8 +10,9 @@ Checklist do gate:
 1. Funcao chamada com 2 inputs diferentes -> outputs diferentes? Cobrir.
 2. Condicional em presenca de coluna? Nao ha (criar_features sempre espera
    todas as 14 colunas originais); N/A.
-3. Fallback/default loga quando usado? Nao ha fallback explicito — mas ha
-   RISCO DE SILENT FAILURE (ver TestDivisaoPorZero abaixo).
+3. Fallback/default loga quando usado? Nao ha fallback — items_quantity<=0
+   levanta ValueError explicito (corrigido nesta sessao; ver
+   TestCustoPorItem.test_items_quantity_zero_levanta_erro_explicito).
 """
 import numpy as np
 import pandas as pd
@@ -74,20 +75,22 @@ class TestCustoPorItem:
         out_b = criar_features(df_b)['custo_por_item'].iloc[0]
         assert out_a != out_b
 
-    def test_items_quantity_zero_produz_inf_sem_erro(self):
+    def test_items_quantity_zero_levanta_erro_explicito(self):
         """
-        ACHADO (nao corrigido nesta tarefa — ver nota no PR/ticket):
-        items_quantity=0 nao ocorre no dataset de treino (min=1), mas a API
-        (api.py) recebe esse campo de formulario externo sem validar > 0.
-        Hoje a funcao produz `inf` silenciosamente, sem log nem excecao —
-        exatamente o padrao que a regra "guarda silenciosa" do AGENTS.md
-        desqualifica (parametro numerico sem contrato de validade, fora do
-        dominio vira valor estranho sem log/erro). Este teste documenta o
-        comportamento ATUAL; nao e uma aprovacao dele.
+        Corrigido: items_quantity<=0 levanta ValueError explicito, em vez de
+        produzir inf silenciosamente (padrao 'guarda silenciosa' do
+        AGENTS.md). Defesa em profundidade — a API tambem valida via
+        Pydantic Field(gt=0), mas notebook/Streamlit chamam criar_features
+        direto, sem passar pelo Pydantic.
         """
         df = linha_base(items_quantity=0, order_value=200.0, freight_value=15.0)
-        out = criar_features(df)
-        assert np.isinf(out['custo_por_item'].iloc[0])
+        with pytest.raises(ValueError, match="items_quantity deve ser > 0"):
+            criar_features(df)
+
+    def test_items_quantity_negativo_tambem_levanta_erro(self):
+        df = linha_base(items_quantity=-1)
+        with pytest.raises(ValueError, match="items_quantity deve ser > 0"):
+            criar_features(df)
 
 
 class TestIntensidadeProblema:
