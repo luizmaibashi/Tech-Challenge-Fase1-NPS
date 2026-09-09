@@ -1,9 +1,15 @@
 # Dicionário de Dados — Tech Challenge NPS Fase 1
 
 **Documento:** `dicionario_desafio_nps.md`  
-**Data da Documentação:** 2026-09-09  
+**Data da Documentação:** 2026-09-09 (corrigido no mesmo dia — ver nota abaixo)
 **Dataset:** `data/desafio_nps_fase_1.csv`  
 **Contrato de Dados:** Define tipos, domínios, significado e restrições  
+
+> **Correção:** a primeira versão tinha média/desvio/domínio/percentuais errados
+> para várias features — mesma causa raiz do `eda_desafio_nps.md` (`df.describe()`
+> truncado + alguns percentuais estimados sem cálculo real, ex: "80% pagam à
+> vista"). Todos os números abaixo foram recalculados direto do CSV e
+> conferidos individualmente (ver `eda_desafio_nps.md` § 4 para a nota completa).
 
 ---
 
@@ -90,9 +96,9 @@
 #### `customer_tenure_months`
 - **Tipo:** Integer (int64)
 - **Unidade:** Meses
-- **Domínio:** [0, 180+]
-- **Média:** 38.8 | Desvio: 51.0 | Mediana: 21
-- **Distribuição:** Cauda longa (muitos novos, alguns veteranos)
+- **Domínio:** [1, 119]
+- **Média:** 61.3 | Desvio: 34.5 | Mediana: 62
+- **Distribuição:** Aproximadamente uniforme
 - **Missing:** 0
 - **Correlação com NPS:** -0.0097 (irrelevante)
 - **Uso Recomendado:** Opcional; correlação fraca
@@ -105,10 +111,10 @@
 #### `order_value`
 - **Tipo:** Float (float64)
 - **Unidade:** R$ (reais brasileiros)
-- **Domínio:** [~6, ~1.600]
-- **Média:** 267.5 | Desvio: 213.2 | Mediana: 182.3
-- **Q1:** 95.0 | Q3: 408.0
-- **Outliers:** 84 (3.4%) acima de R$ 887.5 [IQR method]
+- **Domínio:** [7.76, 1983.81]
+- **Média:** 434.3 | Desvio: 289.8 | Mediana: 375.5
+- **Q1:** 220.2 | Q3: 577.3
+- **Outliers:** 84 (3.4%) acima de R$ 1.112,86 [IQR method]
 - **Missing:** 0
 - **Correlação com NPS:** +0.037 (irrelevante)
 - **Uso Recomendado:** Opcional; correlação fraca
@@ -117,8 +123,8 @@
 #### `items_quantity`
 - **Tipo:** Integer (int64)
 - **Unidade:** Quantidade de itens
-- **Domínio:** [1, ~10]
-- **Média:** 2.8 | Desvio: 2.1
+- **Domínio:** [1, 6]
+- **Média:** 3.5 | Desvio: 1.7 | Moda: 3
 - **Missing:** 0
 - **Correlação com NPS:** +0.011 (irrelevante)
 - **Uso Recomendado:** Usar em feature engineering (vide `custo_por_item` acima)
@@ -126,9 +132,9 @@
 #### `discount_value`
 - **Tipo:** Float (float64)
 - **Unidade:** R$ (reais)
-- **Domínio:** [0, ~290]
-- **Média:** 21.2 | Desvio: 29.4
-- **Outliers:** 125 (5.0%)
+- **Domínio:** [0.02, 230.33]
+- **Média:** 29.7 | Desvio: 29.2
+- **Outliers:** 125 (5.0%) acima de R$ 88,75
 - **Missing:** 0
 - **Correlação com NPS:** +0.025 (irrelevante)
 - **Uso Recomendado:** Usar em feature engineering
@@ -137,9 +143,9 @@
 #### `freight_value`
 - **Tipo:** Float (float64)
 - **Unidade:** R$ (reais)
-- **Domínio:** [~0, ~300]
-- **Média:** 24.8 | Desvio: 20.4
-- **Outliers:** 12 (0.5%)
+- **Domínio:** [2.62, 76.13]
+- **Média:** 38.2 | Desvio: 12.1
+- **Outliers:** 12 (0.5%) fora de [R$ 5,41; R$ 70,78]
 - **Missing:** 0
 - **Correlação com NPS:** -0.041 (fraca)
 - **Uso Recomendado:** Usar em feature engineering (custo_por_item, score_logistica)
@@ -147,8 +153,8 @@
 #### `payment_installments`
 - **Tipo:** Integer (int64)
 - **Unidade:** Número de parcelas
-- **Domínio:** [1, 12]
-- **Média:** 2.2 | Moda: 1 (80% pagam à vista)
+- **Domínio:** [1, 11]
+- **Média:** 6.0 | Desvio: 3.2 | Moda: 2 (9.8% dos pedidos)
 - **Missing:** 0
 - **Correlação com NPS:** +0.024 (irrelevante)
 - **Uso Recomendado:** Opcional
@@ -160,8 +166,8 @@
 #### `delivery_time_days`
 - **Tipo:** Integer (int64)
 - **Unidade:** Dias corridos
-- **Domínio:** [1, 30]
-- **Média:** 8.1 | Mediana: 6 | Desvio: 4.2
+- **Domínio:** [2, 14]
+- **Média:** 8.0 | Mediana: 8 | Desvio: 3.8
 - **Missing:** 0
 - **Significado:** Número de dias prometidos para entrega
 - **Correlação com NPS:** +0.001 (irrelevante)
@@ -171,23 +177,27 @@
 #### `delivery_delay_days` ⭐ **CRITICAL**
 - **Tipo:** Integer (int64)
 - **Unidade:** Dias
-- **Domínio:** [0, 30]
-- **Média:** 1.9 | Mediana: 0 | Desvio: 3.1
-- **Distribuição:** ~38% no prazo (0 dias), concentrado em 0-3 dias
-- **Outliers:** 17 (0.7%) com >15 dias
+- **Domínio:** [0, 8]
+- **Média:** 2.2 | Mediana: 2 | Desvio: 1.5
+- **Distribuição:** 11.1% no prazo (0 dias), concentrado em 1–3 dias
+- **Outliers:** 17 (0.7%) acima de 6 dias
 - **Missing:** 0
 - **Correlação com NPS:** **-0.597** (MAIOR PREDITOR NEGATIVO)
 - **Significado:** Dias em atraso; 0 = entrega no prazo
-- **Insight de Negócio:** Cada dia de atraso reduz NPS em ~3 pontos em média
+- **Insight de Negócio:** Regressão linear simples indica ~1,03 pontos de NPS
+  perdidos por dia adicional de atraso. Comparando grupos: NPS médio 6,86
+  (sem atraso) vs 4,07 (com atraso), diferença de ~2,8 pontos — a afirmação
+  "~3 pontos" do README original do projeto refere-se a essa comparação
+  binária (ter ou não atraso), não a "por dia adicional"
 - **Uso Recomendado:** INCLUIR SEMPRE (principal feature)
 - **Feature Engineering:** Derivar `entrega_no_prazo = (delivery_delay_days == 0)` e `score_logistica = -delay×2 - tentativas + pontual×5`
 
 #### `delivery_attempts`
 - **Tipo:** Integer (int64)
 - **Unidade:** Número de tentativas
-- **Domínio:** [1, 5]
-- **Distribuição:** 80% conseguem 1ª tentativa
-- **Média:** 1.4 | Desvio: 0.8
+- **Domínio:** [1, 3]
+- **Distribuição:** 33.0% conseguem na 1ª tentativa; moda é 2 tentativas
+- **Média:** 2.0 | Desvio: 0.8
 - **Missing:** 0
 - **Correlação com NPS:** +0.028 (fraca)
 - **Uso Recomendado:** Incluir em score_logistica
@@ -200,22 +210,22 @@
 #### `customer_service_contacts` ⭐ **STRONG SIGNAL**
 - **Tipo:** Integer (int64)
 - **Unidade:** Número de contatos
-- **Domínio:** [0, 15]
-- **Média:** 2.2 | Mediana: 1 | Desvio: 2.4
-- **Outliers:** 176 (7.0%) com >5 contatos (clientes problemáticos)
+- **Domínio:** [0, 7]
+- **Média:** 1.5 | Mediana: 1 | Desvio: 1.2
+- **Outliers:** 176 (7.0%) com >3 contatos (clientes problemáticos)
 - **Missing:** 0
 - **Correlação com NPS:** **-0.351** (SEGUNDO MAIOR PREDITOR NEGATIVO)
 - **Significado:** Número de vezes que o cliente contactou o SAC
-- **Insight:** Clientes com >5 contatos têm NPS médio 2.1 vs 4.5 geral
+- **Insight:** Clientes com >3 contatos têm NPS médio 2.47 vs 4.38 geral
 - **Uso Recomendado:** INCLUIR SEMPRE
-- **Feature Engineering:** Pode criar bin `sac_intenso = contacts > 5`
+- **Feature Engineering:** Pode criar bin `sac_intenso = contacts > 3`
 
 #### `resolution_time_days`
 - **Tipo:** Integer (int64)
 - **Unidade:** Dias úteis
-- **Domínio:** [0, ~40]
-- **Média:** 7.1 | Mediana: 5 | Desvio: 8.3
-- **Q1:** 2 | Q3: 11
+- **Domínio:** [0, 11]
+- **Média:** 5.5 | Mediana: 6 | Desvio: 3.5
+- **Q1:** 2 | Q3: 8
 - **Missing:** 0
 - **Correlação com NPS:** -0.191 (fraca)
 - **Uso Recomendado:** Incluir
@@ -227,7 +237,7 @@
 - **Domínio:** [0, 11]
 - **Média:** 4.2 | Mediana: 4 | Desvio: 1.8
 - **Distribuição:** Concentrada em 3–5
-- **Outliers:** 29 (1.2%) com >7 reclamações
+- **Outliers:** 29 (1.2%) com >8 reclamações
 - **Missing:** 0
 - **Correlação com NPS:** **-0.497** (TERCEIRO MAIOR PREDITOR NEGATIVO)
 - **Significado:** Cascata de problemas e insatisfação acumulada
@@ -247,7 +257,9 @@
 - **⚠️ PROBLEMA:** Variável determinada 30 DIAS DEPOIS da compra
 - **Em Produção:** Não disponível no momento da predição
 - **Ação:** REMOVER dataset de treino (modelo será removido antes de salvar)
-- **Impacto de Manter:** F1-Score inflado de ~0.20 pontos
+- **Impacto de Manter (medido junto com csat_internal_score):** F1-Macro sobe
+  de 0.5605 para 0.7874 (+0,23 pontos, RF com mesmo CV 5-fold) — ver
+  `eda_desafio_nps.md` § 8
 
 #### `csat_internal_score` — ⛔ REMOVER
 - **Tipo:** Float (float64)
@@ -271,8 +283,8 @@
 - **Missing:** 0
 - **Distribuição Contínua:**
   - Média: 4.38
-  - Mediana: 3.50
-  - Desvio: 3.89
+  - Mediana: 4.40
+  - Desvio: 2.51
   - Mín: 0.0 | Máx: 10.0
 
 #### Classificação em Categorias (Padrão NPS)

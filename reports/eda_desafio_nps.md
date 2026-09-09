@@ -29,7 +29,7 @@
 
 ### Variáveis de Contexto do Cliente (2)
 - `customer_age` (int): Idade em anos [18-69]
-- `customer_tenure_months` (int): Tempo de cliente em meses [0-180+]
+- `customer_tenure_months` (int): Tempo de cliente em meses [1-119]
 
 ### Variáveis de Pedido e Financeira (5)
 - `order_value` (float): Valor bruto do pedido em R$
@@ -61,11 +61,11 @@
 
 ### Distribuição Contínua
 - **Média:** 4.38
-- **Mediana:** 3.50
-- **Desvio Padrão:** 3.89
+- **Mediana:** 4.40
+- **Desvio Padrão:** 2.51
 - **Mínimo:** 0.0
 - **Máximo:** 10.0
-- **Quartis:** Q1=1.0, Q2=3.5, Q3=7.0
+- **Quartis:** Q1=2.6, Q2=4.4, Q3=6.1
 
 ### Distribuição Categórica (Padrão NPS)
 Classificação conforme metodologia NPS clássica (0-6 Detrator, 7-8 Neutro, 9-10 Promotor):
@@ -83,6 +83,14 @@ Dataset **fortemente desbalanceado**: 74% Detratores vs 8% Promotores (razão 9.
 
 ## 4. Análise Univariada — Features Numéricas
 
+> **Correção (2026-09-09):** a primeira versão desta seção tinha valores incorretos
+> para 8 variáveis. Causa raiz: `df.describe()` truncou a exibição no terminal
+> (dataset tem 19 colunas; pandas mostra só as pontas com `...` no meio) e os
+> números das colunas do meio foram preenchidos sem ter sido vistos na saída real.
+> Recalculado com `df.describe().T` (sem truncamento) e conferido célula a célula
+> contra o CSV. Correlações, outliers, categorias de NPS e regiões da versão
+> original **não foram afetados** — vinham de código que não truncava.
+
 ### Variáveis Demográficas
 
 **customer_age** (Idade do Cliente)
@@ -90,59 +98,61 @@ Dataset **fortemente desbalanceado**: 74% Detratores vs 8% Promotores (razão 9.
 - Range: 18–69 | Distribuição: aproximadamente uniforme
 
 **customer_tenure_months** (Tempo de Cliente)
-- Média: 38.8 meses | Desvio: 51.0
-- Range: 0–180+ | Distribuição: cauda longa (muitos clientes novos)
+- Média: 61.3 meses | Desvio: 34.5
+- Q1: 31 | Mediana: 62 | Q3: 91 | Range: 1–119
+- Distribuição: aproximadamente uniforme (não cauda longa como reportado antes)
 
 ### Variáveis Financeiras
 
 **order_value** (Valor do Pedido)
-- Média: R$ 267.5 | Desvio: R$ 213.2
-- Q1: R$ 95.0 | Q3: R$ 408.0
-- **Outliers:** 84 valores (3.4%) acima de R$ 887.5
+- Média: R$ 434.3 | Desvio: R$ 289.8
+- Q1: R$ 220.2 | Mediana: R$ 375.5 | Q3: R$ 577.3
+- **Outliers:** 84 valores (3.4%) acima de R$ 1.112.86
 
 **discount_value** (Desconto)
-- Média: R$ 21.2 | Desvio: R$ 29.4
-- Máximo: R$ 289.9
-- **Outliers:** 125 valores (5.0%)
+- Média: R$ 29.7 | Desvio: R$ 29.2
+- Q1: R$ 8.9 | Mediana: R$ 20.9 | Q3: R$ 40.8 | Máximo: R$ 230.3
+- **Outliers:** 125 valores (5.0%) acima de R$ 88.75
 
 **freight_value** (Frete)
-- Média: R$ 24.8 | Desvio: R$ 20.4
-- **Outliers:** 12 valores (0.5%)
+- Média: R$ 38.2 | Desvio: R$ 12.1
+- Q1: R$ 29.9 | Mediana: R$ 38.5 | Q3: R$ 46.3
+- **Outliers:** 12 valores (0.5%) fora de [R$ 5.41, R$ 70.78]
 
 **payment_installments** (Parcelas)
-- Média: 2.2 | Range: 1–12
+- Média: 6.0 | Desvio: 3.2
+- Q1: 3 | Mediana: 6 | Q3: 9 | Range: 1–11
 
 ### Variáveis de Logística
 
 **delivery_time_days** (Dias Prometidos)
-- Média: 8.1 dias | Desvio: 4.2
-- Range: 1–30 dias
+- Média: 8.0 dias | Desvio: 3.8
+- Q1: 5 | Mediana: 8 | Q3: 11 | Range: 2–14 dias
 
 **delivery_delay_days** (Atraso)
-- Média: 1.9 dias | Desvio: 3.1
-- Range: 0–30 dias
-- **Proporção no prazo (delay=0):** ~38%
-- **Outliers:** 17 valores (0.7%) com atraso > 15 dias
+- Média: 2.2 dias | Desvio: 1.5
+- Q1: 1 | Mediana: 2 | Q3: 3 | Range: 0–8 dias
+- **Outliers:** 17 valores (0.7%) fora de [-2, 6] (na prática, acima de 6 dias)
 
 **delivery_attempts** (Tentativas de Entrega)
-- Média: 1.4 | Range: 1–5
-- Distribuição: 80% conseguem na 1ª tentativa
+- Média: 2.0 | Desvio: 0.8
+- Q1: 1 | Mediana: 2 | Q3: 3 | Range: 1–3
 
 ### Variáveis de Suporte
 
 **customer_service_contacts** (Contatos SAC)
-- Média: 2.2 | Desvio: 2.4
-- Range: 0–15
-- **Outliers:** 176 valores (7.0%) com >5 contatos (risco alto)
+- Média: 1.5 | Desvio: 1.2
+- Q1: 1 | Mediana: 1 | Q3: 2 | Range: 0–7
+- **Outliers:** 176 valores (7.0%) fora de [-0.5, 3.5] (na prática, >3 contatos)
 
 **resolution_time_days** (Tempo de Resolução)
-- Média: 7.1 dias | Desvio: 8.3
-- Q1: 2 | Q3: 11
+- Média: 5.5 dias | Desvio: 3.5
+- Q1: 2 | Mediana: 6 | Q3: 8 | Range: 0–11 dias
 
 **complaints_count** (Total de Reclamações)
-- Média: 4.2 | Range: 0–11
-- Distribuição: concentrada em 3–5
-- **Outliers:** 29 valores (1.2%)
+- Média: 4.2 | Desvio: 1.8
+- Q1: 3 | Mediana: 4 | Q3: 5 | Range: 0–11
+- **Outliers:** 29 valores (1.2%) fora de [0, 8] (na prática, >8 reclamações)
 
 ---
 
@@ -198,10 +208,10 @@ Dataset **fortemente desbalanceado**: 74% Detratores vs 8% Promotores (razão 9.
 |----------|----------|---|------|
 | `order_value` | 84 | 3.4% | Manter; pedidos de alto valor são legítimos |
 | `discount_value` | 125 | 5.0% | Manter; descontos legítimos variam |
-| `customer_service_contacts` | 176 | 7.0% | **Investigar:** clientes com >5 contatos têm NPS médio 2.1 vs 4.5 geral |
+| `customer_service_contacts` | 176 | 7.0% | **Investigar:** clientes com >3 contatos têm NPS médio 2.47 vs 4.38 geral |
 | `repeat_purchase_30d` | 218 | 8.7% | Manter; mas variável será removida por leakage |
 | `complaints_count` | 29 | 1.2% | Manter; correlação com NPS é forte |
-| `delivery_delay_days` | 17 | 0.7% | Manter; atraso extremo (>15 dias) é raro mas importante |
+| `delivery_delay_days` | 17 | 0.7% | Manter; atraso extremo (>6 dias) é raro mas importante |
 | `freight_value` | 12 | 0.5% | Manter; fretes extremos são legítimos |
 
 ### Validação de Dados
@@ -228,8 +238,10 @@ Dataset **fortemente desbalanceado**: 74% Detratores vs 8% Promotores (razão 9.
 - **Em produção:** Não disponível no momento da predição
 - **Ação:** REMOVER do modelo final
 
-**Impact do Leakage no Benchmark:**
-Modelos que usarem essas duas variáveis terão F1-Score inflado (~0.75-0.85). Ao remover leakage, espera-se queda para ~0.55-0.65. Esse é o intervalo realista esperado.
+**Impacto do Leakage no Benchmark (medido, não estimado):**
+Random Forest com leakage incluído: F1-Macro = 0.7874 ± 0.0234 (CV 5-fold).
+Random Forest sem leakage (benchmark real, Ticket 0009): F1-Macro = 0.5605 ± 0.0409.
+Diferença de ~0.23 pontos de F1 — o ganho do leakage é real e substancial, confirmando que remover as duas variáveis era a decisão correta.
 
 ---
 
@@ -270,17 +282,27 @@ Modelos que usarem essas duas variáveis terão F1-Score inflado (~0.75-0.85). A
 
 ## Apêndice: Estatísticas Completas
 
+Gerado com `df.describe().T` (sem truncamento de colunas — ver nota de correção no § 4).
+
 ```
-          customer_id  customer_age  ...  complaints_count  csat_internal_score
-count        2500.00000    2500.000000  ...       2500.000000          2500.000000
-mean         1250.50000      43.396000  ...          4.150400             2.941600
-std           721.83216      14.888487  ...          1.784223             2.378957
-min             1.00000      18.000000  ...          0.000000             0.000000
-25%           625.75000      31.000000  ...          3.000000             0.700000
-50%          1250.50000      43.000000  ...          4.000000             2.800000
-75%          1875.25000      56.000000  ...          5.000000             4.800000
-max          2500.00000      69.000000  ...         11.000000            10.000000
+                               mean       std       min       25%       50%       75%       max
+customer_age                43.3960   14.8885     18.00    31.00     43.00     56.00     69.00
+customer_tenure_months      61.3224   34.4787      1.00    31.00     62.00     91.00    119.00
+order_value                434.2597  289.7725      7.76   220.25    375.52    577.29   1983.81
+items_quantity                3.4708    1.6873      1.00     2.00      3.00      5.00      6.00
+discount_value               29.7456   29.2256      0.02     8.89     20.94     40.83    230.33
+payment_installments          6.0040    3.1597      1.00     3.00      6.00      9.00     11.00
+delivery_time_days            8.0220    3.7704      2.00     5.00      8.00     11.00     14.00
+delivery_delay_days           2.1872    1.4544      0.00     1.00      2.00      3.00      8.00
+freight_value                38.2170   12.0761      2.62    29.93     38.50     46.27     76.13
+delivery_attempts              2.0056    0.8155      1.00     1.00      2.00      3.00      3.00
+customer_service_contacts      1.5196    1.2315      0.00     1.00      1.00      2.00      7.00
+resolution_time_days           5.4856    3.4580      0.00     2.00      6.00      8.00     11.00
+nps_score                      4.3786    2.5102      0.00     2.60      4.40      6.10     10.00
+complaints_count               4.1504    1.7842      0.00     3.00      4.00      5.00     11.00
 ```
+
+*(Colunas `repeat_purchase_30d` e `csat_internal_score` omitidas aqui por serem leakage — ver § 8; `customer_id`/`order_id` omitidos por serem identificadores.)*
 
 ---
 
