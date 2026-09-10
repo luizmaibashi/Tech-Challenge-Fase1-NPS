@@ -176,8 +176,12 @@ reports/experimento_causal/             figuras, pavc_cenarios.md, resultados.js
 tests/test_experimento_causal.py        seed determinística, recuperação do efeito, limites
 ```
 
-Dado sintético em bulk fica no `.gitignore` (regenerável por seed). Só as figuras e o
+Dado sintético fica em memória, regenerável por seed (nunca persistido). Só as figuras e o
 `resultados.json` citados pelo notebook e pelo README entram no git.
+
+**Status (2026-09-10):** implementado na branch `feat/experimento-causal` (ticket 0015 feito).
+`reports.py` gera `reliability_v1.png`, `efeito_por_estrato.png`, `validacao_estimador.png`,
+`decisao_superficie.png`, `sensibilidade_p0.png`, `pavc_cenarios.md`, `resultados.json`.
 
 Fluxo git: branch `feat/experimento-causal`, PR para `main` (trilha de revisão de diff, alinha
 com a spec-governance). A seção didática em `docs/` é passo 2 do ticket 0015, depois que o
