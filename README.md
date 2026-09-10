@@ -3,8 +3,7 @@
 ![NPS Predictor Demo](assets/nps_demo.webp)
 [![Python](https://img.shields.io/badge/Python-3.8%2B-blue?style=flat-square&logo=python)](https://www.python.org/)
 [![scikit-learn](https://img.shields.io/badge/scikit--learn-1.8-orange?style=flat-square&logo=scikitlearn)](https://scikit-learn.org/)
-[![Streamlit](https://img.shields.io/badge/Streamlit-Deploy-red?style=flat-square&logo=streamlit)](https://streamlit.io/)
-[![Tests](https://img.shields.io/badge/Testes-26%20passing-success?style=flat-square)](#)
+[![Tests](https://img.shields.io/badge/Testes-31%20passing-success?style=flat-square)](#)
 [![CRISP-DM](https://img.shields.io/badge/Methodology-CRISP--DM-success?style=flat-square)](#)
 [![FIAP](https://img.shields.io/badge/FIAP-Pós--Graduação%20AI%20Scientist-blueviolet?style=flat-square)](#)
 
@@ -21,7 +20,7 @@
 3. [A Jornada dos Dados: CRISP-DM](#3-a-jornada-executiva-dos-dados-highlights-do-diagnóstico)
 4. [Modelo Final e Explicabilidade](#4-modelo-final-e-explicabilidade)
 5. [ROI Financeiro: De F1-Score a Dinheiro Real](#5-roi-financeiro--de-f1-score-a-dinheiro-real)
-6. [Deploy: Streamlit App](#6-deploy-streamlit-app)
+6. [Deploy: GitHub Pages](#6-deploy-github-pages)
 7. [Estrutura do Repositório](#7-estrutura-do-repositório)
 8. [Como Reproduzir](#8-como-reproduzir)
 9. [Refatoração Completa (Setembro/2026)](#9-refatoração-completa-setembro2026)
@@ -163,19 +162,19 @@ Gerado por `shap_analysis.py` (`TreeExplainer`, rápido para modelos de árvore)
 | Taxa de retenção pós-ação | 35% | Premissa de negócio |
 | LTV por cliente retido | R$ 350,00 | Premissa de negócio |
 
-**Resultado (números medidos, não estimados):**
+**Cenário-base do simulador:**
 
 | Métrica | Valor |
 |---|---|
-| Detratores reais no mês | 1.851 |
-| Detratores detectados (threshold 0,19) | 1.822 |
+| Detratores reais no mês | 1.850 |
+| Detratores detectados (threshold 0,19) | 1.820 |
 | Falsos positivos (ação desnecessária) | 486 |
-| Custo total das ações (2.308 cupons) | R$ 69.240,00 |
-| Receita preservada (LTV) | R$ 223.195,00 |
-| **Lucro Líquido Mensal** | **R$ 153.955,00** |
+| Custo total das ações (2.306 cupons) | R$ 69.180,00 |
+| Receita preservada (LTV) | R$ 222.950,00 |
+| **Lucro Líquido Mensal** | **R$ 153.770,00** |
 | **ROI Estimado** | **~222%** |
 
-FP, FN e TP vêm direto de `reports/threshold_calibration.json` (ponto de operação em 0,19); custo = (TP + FP) × R$ 30; receita = TP × 35% × R$ 350.
+As taxas de FP, FN e TP vêm de `reports/threshold_calibration.json` (ponto de operação em 0,19). O simulador trunca cada etapa para representar pessoas inteiras: custo = ações × R$ 30; receita = retidos × R$ 350.
 
 **Comparação que realmente importa — threshold calibrado vs threshold ingênuo:** usar o corte padrão (0,5) em vez do calibrado por custo (0,19) custaria **R$ 25.512,50/mês a mais** — é essa a economia direta de ter feito a calibração corretamente, não uma estimativa, um número medido com CV.
 
@@ -183,9 +182,11 @@ FP, FN e TP vêm direto de `reports/threshold_calibration.json` (ponto de opera�
 
 ---
 
-## 6. Deploy: Streamlit App
+## 6. Deploy: GitHub Pages
 
-O modelo foi deployado como um **Web App interativo** usando Streamlit, com 3 abas funcionais:
+O projeto é publicado como uma página estática no GitHub Pages. A predição roda no navegador: o exportador transforma o scaler e as 100 árvores da Random Forest em JSON, sem enviar os dados do formulário para um servidor.
+
+O Streamlit continua no repositório como referência local. A demo pública concentra as mesmas três áreas: predição, simulador de ROI e explicação do modelo.
 
 ### Aba 1: "Predição Interativa" (Tempo Real)
 - Formulário lateral com os parâmetros operacionais do pedido
@@ -216,17 +217,20 @@ O modelo foi deployado como um **Web App interativo** usando Streamlit, com 3 ab
 **Feature Importance (Gini) — complementada por SHAP na § 4:**
 ![Feature Importance](assets/Deploy5.jpeg)
 
-### Como Rodar o App
+### Publicar e reproduzir
 
 ```bash
-# 1. Da raiz do projeto, com o ambiente instalado (ver § 8):
-streamlit run app/deploy.py
+# Atualize o artefato público depois de alterar o pipeline
+python scripts/exportar_modelo_web.py
 
-# 2. Acesse no navegador:
-# http://localhost:8501
+# Rode os testes de paridade antes de publicar
+pytest tests/test_exportar_modelo_web.py -q
+
+# Referência local em Python
+streamlit run app/deploy.py
 ```
 
-> **Pré-requisito:** O modelo em produção já está versionado em `models/v1/pipeline_completo.pkl`. Para re-treinar do zero, rode `python train_pipeline.py`.
+O GitHub Pages deve servir a pasta `docs/` da branch `main`. Antes do publish, a paridade é conferida contra as 2.500 linhas do dataset, incluindo a decisão de retenção em 19%.
 
 ---
 
@@ -247,6 +251,9 @@ tech_challenge_nps/
 ├── data/
 │   └── desafio_nps_fase_1.csv
 ├── docs/
+│   ├── assets/                         # Página estática, runtime JS e modelo público
+│   ├── adr/                            # Decisões arquiteturais do deploy
+│   ├── spec/                           # Escopo e critérios de aceite da demo
 │   ├── enunciado/                      # Enunciado oficial do desafio
 │   └── wayfinder/tech_challenge_nps/   # Registro de cada decisão da refatoração (10 tickets)
 ├── reports/                            # EDA, dicionário de dados, benchmark, SHAP, threshold, contrato
@@ -257,7 +264,10 @@ tech_challenge_nps/
 │   ├── shap_summary.png / shap_waterfall_detrator.png
 │   └── threshold_calibration.json / threshold_grid.csv / threshold_custo.png
 ├── tests/
-│   └── test_utils.py                   # 26 testes de unidade
+│   ├── test_utils.py                   # 26 testes de unidade
+│   └── test_exportar_modelo_web.py     # Paridade sklearn ↔ artefato web ↔ JavaScript
+├── scripts/
+│   └── exportar_modelo_web.py          # Exporta o pipeline para o artefato estático
 │
 ├── api.py                       # Backend API (FastAPI)
 ├── train_pipeline.py             # Treino e versionamento do modelo

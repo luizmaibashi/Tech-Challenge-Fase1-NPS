@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Demonstração estática do preditor de detratação NPS.">
+  <title>NPS Predictor | Decisão de retenção</title>
+  <link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+  <a class="skip-link" href="#conteudo">Ir para o conteúdo</a>
+  <header class="hero">
+    <p class="eyebrow">Tech Challenge Fase 1 · FIAP</p>
+    <h1>NPS Predictor</h1>
+    <p class="lede">Uma simulação de intervenção antes que a experiência vire detratação.</p>
+    <div class="decision-rail" aria-label="Política de retenção">
+      <span>Decisão operacional</span><strong>P(detrator) ≥ 19%</strong>
+      <small>O corte foi calibrado pelo custo de não agir, não por convenção.</small>
+    </div>
+  </header>
+
+  <main id="conteudo" class="shell">
+    <nav class="tabs" role="tablist" aria-label="Áreas da demonstração">
+      <button role="tab" id="tab-predicao" aria-selected="true" aria-controls="painel-predicao">Simular pedido</button>
+      <button role="tab" id="tab-roi" aria-selected="false" aria-controls="painel-roi" tabindex="-1">Simular retorno</button>
+      <button role="tab" id="tab-modelo" aria-selected="false" aria-controls="painel-modelo" tabindex="-1">Entender o modelo</button>
+    </nav>
+
+    <section id="painel-predicao" role="tabpanel" aria-labelledby="tab-predicao">
+      <div class="intro-row"><div><p class="section-label">Pedido em análise</p><h2>O que já sabemos antes da pesquisa NPS?</h2></div><p>Os dados ficam neste navegador. Nenhuma informação é enviada a um servidor.</p></div>
+      <form id="form-predicao" class="form-grid" novalidate>
+        <fieldset><legend>Cliente</legend>
+          <label>Idade <input name="customer_age" type="number" min="18" max="80" value="35" required></label>
+          <label>Tempo como cliente (meses) <input name="customer_tenure_months" type="number" min="0" max="120" value="12" required></label>
+        </fieldset>
+        <fieldset><legend>Pedido</legend>
+          <label>Valor do pedido (R$) <input name="order_value" type="number" min="10" max="5000" step="0.01" value="250" required></label>
+          <label>Quantidade de itens <input name="items_quantity" type="number" min="1" max="50" value="2" required></label>
+          <label>Desconto (R$) <input name="discount_value" type="number" min="0" max="500" step="0.01" value="10" required></label>
+          <label>Parcelas <input name="payment_installments" type="number" min="1" max="12" value="3" required></label>
+          <label>Frete (R$) <input name="freight_value" type="number" min="0" max="200" step="0.01" value="25" required></label>
+        </fieldset>
+        <fieldset><legend>Logística e suporte</legend>
+          <label>Prazo prometido (dias) <input name="delivery_time_days" type="number" min="1" max="30" value="7" required></label>
+          <label>Atraso real (dias) <input name="delivery_delay_days" type="number" min="0" max="20" value="0" required></label>
+          <label>Tentativas de entrega <input name="delivery_attempts" type="number" min="1" max="5" value="1" required></label>
+          <label>Contatos com SAC <input name="customer_service_contacts" type="number" min="0" max="10" value="0" required></label>
+          <label>Tempo de resolução (dias) <input name="resolution_time_days" type="number" min="0" max="15" value="0" required></label>
+          <label>Reclamações <input name="complaints_count" type="number" min="0" max="5" value="0" required></label>
+        </fieldset>
+        <button class="primary" type="submit">Calcular risco e ação</button>
+        <p id="status-modelo" class="status" aria-live="polite">O modelo será carregado apenas ao calcular.</p>
+      </form>
+      <section id="resultado" class="result hidden" aria-live="polite" aria-atomic="true"></section>
+    </section>
+
+    <section id="painel-roi" role="tabpanel" aria-labelledby="tab-roi" hidden>
+      <div class="intro-row"><div><p class="section-label">Cenário financeiro</p><h2>Quanto custa agir, e quanto custa deixar passar?</h2></div><p>Esta aba altera premissas. Ela não altera o modelo.</p></div>
+      <form id="form-roi" class="roi-form">
+        <label>Pedidos por mês <input name="pedidos" type="number" min="100" max="100000" step="100" value="2500"></label>
+        <label>Taxa de detratores <input name="taxa" type="number" min="0.1" max="0.95" step="0.01" value="0.7404"></label>
+        <label>Recall no threshold <input name="recall" type="number" min="0.3" max="0.99" step="0.001" value="0.984"></label>
+        <label>Custo da ação (R$) <input name="custo" type="number" min="5" max="200" step="5" value="30"></label>
+        <label>Retenção pós-ação <input name="retencao" type="number" min="0.05" max="0.7" step="0.01" value="0.35"></label>
+        <label>LTV por cliente (R$) <input name="ltv" type="number" min="50" max="2000" step="50" value="350"></label>
+      </form>
+      <div id="resultado-roi" class="metrics" aria-live="polite"></div>
+      <div id="sensibilidade" class="sensitivity" aria-label="Tabela de sensibilidade de ROI"></div>
+    </section>
+
+    <section id="painel-modelo" role="tabpanel" aria-labelledby="tab-modelo" hidden>
+      <p class="section-label">Como ler esta demo</p><h2>Triagem, não sentença</h2>
+      <div class="model-grid"><article><h3>O que prevê</h3><p>Risco de detratação a partir de sinais operacionais do pedido. Região foi excluída: o problema observado é sistêmico, não regional.</p></article><article><h3>Como decide</h3><p>Uma Random Forest com 100 árvores combina os 20 sinais. A ação usa a probabilidade de detrator, separada da classe mais provável.</p></article><article><h3>Limite da simulação</h3><p>LTV e retenção são premissas de negócio. O ganho mais confiável é comparar o corte de 19% com o corte padrão de 50%.</p></article></div>
+      <div id="importancias" class="importance" aria-label="Importância das variáveis"></div>
+    </section>
+  </main>
+  <footer>Modelo v1, Random Forest · inferência local no navegador · <a href="https://github.com/luizmaibashi/Tech-Challenge-Fase1-NPS">Código e metodologia</a></footer>
+  <script src="assets/modelo.js"></script><script src="assets/app.js"></script>
+</body></html>
