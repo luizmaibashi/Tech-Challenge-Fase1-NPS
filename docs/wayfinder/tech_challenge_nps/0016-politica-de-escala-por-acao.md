@@ -1,6 +1,6 @@
 ---
 tipo: tarefa-simples
-status: aberto
+status: desenho-consolidado
 criado: 2026-09-10
 ---
 
@@ -17,3 +17,7 @@ decisão manual.
 
 (definir política inicial baseada em lucro incremental, capacidade operacional e
 monitoramento de efeito por segmento)
+
+---
+
+**Desenho consolidado em `docs/spec/0002-experimento-causal.md`** (2026-09-10, via grill-with-docs + ADR-0002). Este ticket fica aberto para revalidação com dados reais de CRM antes de qualquer execução; a forma "produção" não roda neste projeto de portfólio.
