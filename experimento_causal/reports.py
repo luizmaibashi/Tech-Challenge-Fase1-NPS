@@ -21,11 +21,9 @@ import numpy as np
 import pandas as pd
 
 from experimento_causal import config as cfg
-from experimento_causal.analise import (analisar, estimar, observar,
-                                        validar_recuperacao, Z)
-from experimento_causal.dgp import CenarioDGP, gerar_populacao
+from experimento_causal.analise import analisar, estimar, simular, validar_recuperacao, Z
+from experimento_causal.dgp import CenarioDGP
 from experimento_causal.dimensionamento import sensibilidade_p0, ELEGIVEIS_MES
-from experimento_causal.randomizacao import sortear
 
 C_TRAT, C_CTRL, C_VERD = "#1b7837", "#762a83", "#d95f02"
 _ROT = dict(fontsize=8, color="#666")
@@ -38,7 +36,7 @@ def _rotulo(ax):
 
 def fig_efeito_por_estrato(cen=None):
     cen = cen or CenarioDGP(efeito="heterogeneo")
-    df = observar(sortear(gerar_populacao(cen), seed=cen.seed), cen, seed=cen.seed)
+    df = simular(cen)
     est = estimar(df)
     est = est[est["estrato"] >= 0]
     x = np.arange(len(est))
@@ -94,7 +92,7 @@ def fig_validacao_estimador(n_rep=80):
 
 def fig_decisao_superficie(cen=None):
     cen = cen or CenarioDGP(efeito="rentavel")
-    df = observar(sortear(gerar_populacao(cen), seed=cen.seed), cen, seed=cen.seed)
+    df = simular(cen)
     est = estimar(df)
     valores = np.linspace(80, 380, 120)
 

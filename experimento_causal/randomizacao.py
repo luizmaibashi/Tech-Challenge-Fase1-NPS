@@ -13,8 +13,6 @@ import pandas as pd
 
 from experimento_causal import config as cfg
 
-_BRACOS = ("controle", "tratamento")
-
 
 def estrato_efetivo(df: pd.DataFrame, fracao_controle: float = cfg.FRACAO_CONTROLE,
                     piso: int = cfg.PISO_CELULA_POR_BRACO) -> pd.Series:
@@ -47,13 +45,15 @@ def sortear(df: pd.DataFrame, fracao_controle: float = cfg.FRACAO_CONTROLE,
     out["estrato_efetivo"] = estrato_efetivo(out, fracao_controle)
     rng = np.random.default_rng(seed)
 
+    # os chamadores passam um RangeIndex (gerar_populacao / reset_index), entao
+    # posicao == rotulo e o fancy-index posicional abaixo e valido.
     braco = np.empty(len(out), dtype=object)
-    for _, idx in out.groupby("estrato_efetivo").groups.items():
-        idx = np.array(list(idx))
-        rng.shuffle(idx)
-        n_ctrl = int(round(len(idx) * fracao_controle))
-        braco[np.isin(np.arange(len(out)), idx)] = "tratamento"
-        braco[idx[:n_ctrl]] = "controle"
+    for pos in out.groupby("estrato_efetivo").indices.values():
+        pos = pos.copy()
+        rng.shuffle(pos)
+        n_ctrl = int(round(len(pos) * fracao_controle))
+        braco[pos] = "tratamento"
+        braco[pos[:n_ctrl]] = "controle"
     out["braco"] = braco
     return out
 

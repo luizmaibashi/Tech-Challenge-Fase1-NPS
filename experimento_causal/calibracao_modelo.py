@@ -20,6 +20,7 @@ DADOS SINTETICOS NAO, aqui: roda sobre o dataset real da Fase 1. O rotulo de sin
 vale para dgp.py em diante.
 """
 import json
+from functools import lru_cache
 
 import joblib
 import matplotlib
@@ -27,7 +28,7 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-from sklearn.calibration import CalibratedClassifierCV
+from sklearn.calibration import CalibratedClassifierCV, calibration_curve
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.metrics import brier_score_loss
 from sklearn.model_selection import StratifiedKFold
@@ -43,20 +44,6 @@ def _carregar_xy():
     X = df[FEATURES_MODELO].to_numpy()
     y = (df["nps_score"] <= cfg.DETRATOR_CUTOFF).astype(int).to_numpy()
     return df, X, y
-
-
-def _proba_oof(X, y, seed=cfg.SEED):
-    """Probabilidade de ser detrator, out-of-fold, com scaler fitado dentro do fold."""
-    cv = StratifiedKFold(n_splits=cfg.CV_FOLDS, shuffle=True, random_state=seed)
-    proba = np.zeros(len(y))
-    for tr, va in cv.split(X, y):
-        scaler = StandardScaler()
-        Xtr = scaler.fit_transform(X[tr])
-        Xva = scaler.transform(X[va])
-        model = RandomForestClassifier(**cfg.RF_PARAMS)
-        model.fit(Xtr, y[tr])
-        proba[va] = model.predict_proba(Xva)[:, 1]
-    return proba
 
 
 def _ece_mce(y_true, proba, n_bins=10):
@@ -82,21 +69,12 @@ def _ece_mce(y_true, proba, n_bins=10):
     return float(ece), float(mce), linhas
 
 
-def _curva_confiabilidade(y_true, proba, n_bins=10):
-    """Confianca media x acerto medio por decil de probabilidade (bins por quantil)."""
-    df = pd.DataFrame({"p": proba, "y": y_true})
-    df["bin"] = pd.qcut(df["p"], q=n_bins, duplicates="drop")
-    agg = df.groupby("bin", observed=True).agg(conf=("p", "mean"),
-                                               acerto=("y", "mean"),
-                                               n=("y", "size"))
-    return agg["conf"].to_numpy(), agg["acerto"].to_numpy(), agg["n"].to_numpy()
-
-
-def _ece_scorer_honesto(X, y, seed=cfg.SEED):
+def _proba_oof_cru_e_scorer(X, y, seed=cfg.SEED):
     """
-    ECE do scorer recalibrado (StandardScaler + CalibratedClassifierCV) medido por
-    CV externa: cada fold treina o scorer inteiro do zero e mede o ECE no fold de
-    fora. Sem contaminacao in-sample. Retorna (ece_cru_oof, ece_scorer_oof).
+    Probabilidades out-of-fold por CV externa: a crua do RF e a do scorer
+    recalibrado (StandardScaler + CalibratedClassifierCV), cada fold treinado do
+    zero e previsto no fold de fora. Sem contaminacao in-sample. Uma passada so
+    serve tanto o diagnostico do modelo cru quanto o do scorer.
     """
     cv = StratifiedKFold(cfg.CV_FOLDS, shuffle=True, random_state=seed)
     p_cru = np.zeros(len(y))
@@ -111,16 +89,14 @@ def _ece_scorer_honesto(X, y, seed=cfg.SEED):
             cv=StratifiedKFold(cfg.CV_FOLDS, shuffle=True, random_state=seed),
         ).fit(Xtr, y[tr])
         p_cal[te] = cal.predict_proba(Xte)[:, 1]
-    ece_cru, _, _ = _ece_mce(y, p_cru)
-    ece_cal, _, _ = _ece_mce(y, p_cal)
-    return float(ece_cru), float(ece_cal)
+    return p_cru, p_cal
 
 
 def _grafico(y, proba_cru, proba_calib, ece_cru, ece_calib, brier, destino):
     fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(13, 5.2))
 
-    conf_c, acerto_c, _ = _curva_confiabilidade(y, proba_cru)
-    conf_r, acerto_r, _ = _curva_confiabilidade(y, proba_calib)
+    acerto_c, conf_c = calibration_curve(y, proba_cru, n_bins=10, strategy="quantile")
+    acerto_r, conf_r = calibration_curve(y, proba_calib, n_bins=10, strategy="quantile")
 
     ax1.plot([0, 1], [0, 1], "--", color="#888", label="calibracao perfeita")
     ax1.plot(conf_c, acerto_c, "o-", color="#e74c3c",
@@ -188,7 +164,9 @@ def treinar_scorer(salvar=True):
     return bundle
 
 
+@lru_cache(maxsize=1)
 def carregar_scorer():
+    """Bundle do scorer, uma vez por processo (o .pkl tem ~6 MB)."""
     if not cfg.SCORER_PATH.exists():
         return treinar_scorer(salvar=True)
     return joblib.load(cfg.SCORER_PATH)
@@ -234,16 +212,16 @@ def resumo_elegibilidade(df_features=None):
 def diagnosticar(salvar=True, verbose=True):
     df, X, y = _carregar_xy()
 
-    proba = _proba_oof(X, y)
-    proba_calib = prever_risco(df)  # scorer recalibrado (o que o experimento usa)
+    # uma passada de CV externa serve o diagnostico do modelo cru e o do scorer
+    p_cru, p_cal = _proba_oof_cru_e_scorer(X, y)
 
-    brier = brier_score_loss(y, proba)
-    ece, mce, bins = _ece_mce(y, proba)
-    ece_cru_oof, ece_scorer_oof = _ece_scorer_honesto(X, y)
+    brier = brier_score_loss(y, p_cru)
+    ece, mce, bins = _ece_mce(y, p_cru)
+    ece_scorer_oof, _, _ = _ece_mce(y, p_cal)
 
     # veredito: ECE abaixo de 0,05 e a folga usual para tratar como probabilidade
     calibrado = ece < 0.05
-    isotonica_ajuda = (ece_cru_oof - ece_scorer_oof) > 0.02
+    isotonica_ajuda = (ece - ece_scorer_oof) > 0.02
 
     # elegibilidade sobre a probabilidade JA recalibrada (o que o experimento usa)
     elgb = resumo_elegibilidade(df)
@@ -255,7 +233,7 @@ def diagnosticar(salvar=True, verbose=True):
         "brier": round(float(brier), 4),
         "ece": round(ece, 4),
         "mce": round(mce, 4),
-        "ece_cru_cv_externa": round(ece_cru_oof, 4),
+        "ece_cru_cv_externa": round(ece, 4),
         "ece_scorer_recalibrado_cv_externa": round(ece_scorer_oof, 4),
         "elegibilidade_recalibrada": elgb,
         "veredito": {
@@ -276,7 +254,7 @@ def diagnosticar(salvar=True, verbose=True):
 
     if salvar:
         cfg.REPORTS_DIR.mkdir(parents=True, exist_ok=True)
-        _grafico(y, proba, proba_calib, ece_cru_oof, ece_scorer_oof, brier,
+        _grafico(y, p_cru, p_cal, ece, ece_scorer_oof, brier,
                  cfg.REPORTS_DIR / "reliability_v1.png")
         with open(cfg.REPORTS_DIR / "calibracao_v1.json", "w", encoding="utf-8") as f:
             json.dump(resultado, f, indent=2, ensure_ascii=False)
@@ -289,7 +267,7 @@ def diagnosticar(salvar=True, verbose=True):
               f"{resultado['taxa_detrator_base']:.1%}")
         print(f"Brier = {brier:.3f}   ECE = {ece:.3f}   MCE = {mce:.3f}   "
               f"(modelo v1 cru, OOF)")
-        print(f"ECE por CV externa: cru {ece_cru_oof:.3f} -> "
+        print(f"ECE por CV externa: cru {ece:.3f} -> "
               f"scorer recalibrado {ece_scorer_oof:.3f}")
         print("-" * 74)
         print(f"Elegibilidade (probabilidade recalibrada, corte "

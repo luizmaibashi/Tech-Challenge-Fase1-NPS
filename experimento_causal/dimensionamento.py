@@ -12,21 +12,37 @@ from statsmodels.stats.proportion import proportion_effectsize
 
 from experimento_causal import config as cfg
 
-# volume mensal de elegiveis por estrato (base real, spec secao 2)
-ELEGIVEIS_MES = {"total": 1806, 0: 312, 1: 458, 2: 1036}
+# razao tratamento/controle vem direto da fracao de controle do desenho
+RAZAO_TRAT_CTRL = (1 - cfg.FRACAO_CONTROLE) / cfg.FRACAO_CONTROLE
 
 
-def n_por_braco(p0, mde, alfa=cfg.ALFA, poder=cfg.PODER, razao_trat_ctrl=3.0):
+def elegiveis_mes(recomputar=False):
+    """
+    Volume mensal de elegiveis por estrato. Valores fixos abaixo (evita carregar o
+    scorer de 6 MB no import); `recomputar=True` regenera de
+    calibracao_modelo.resumo_elegibilidade() se o scorer mudar.
+    """
+    if recomputar:
+        from experimento_causal.calibracao_modelo import resumo_elegibilidade
+        e = resumo_elegibilidade()
+        return {"total": e["elegivel_por_mes"],
+                **{i: s["n"] for i, s in enumerate(e["estratos"])}}
+    return {"total": 1806, 0: 305, 1: 458, 2: 1043}  # scorer atual; reconferir com recomputar=True
+
+
+ELEGIVEIS_MES = elegiveis_mes()
+
+
+def n_por_braco(p0, mde, alfa=cfg.ALFA, poder=cfg.PODER, razao=RAZAO_TRAT_CTRL):
     """
     n de controle e de tratamento para detectar um lift 'mde' sobre uma base p0,
-    num teste de duas proporcoes com alocacao desigual (75/25 -> razao 3).
+    num teste de duas proporcoes com alocacao desigual (padrao 75/25).
     """
     h = proportion_effectsize(min(p0 + mde, 0.999), p0)
     n_ctrl = NormalIndPower().solve_power(
-        effect_size=h, alpha=alfa, power=poder, ratio=razao_trat_ctrl,
-        alternative="two-sided")
+        effect_size=h, alpha=alfa, power=poder, ratio=razao, alternative="two-sided")
     n_ctrl = int(np.ceil(n_ctrl))
-    n_trat = int(np.ceil(n_ctrl * razao_trat_ctrl))
+    n_trat = int(np.ceil(n_ctrl * razao))
     return n_ctrl, n_trat
 
 

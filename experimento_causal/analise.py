@@ -41,6 +41,11 @@ def observar(df: pd.DataFrame, cen: CenarioDGP, seed: int = cfg.SEED) -> pd.Data
     return out
 
 
+def simular(cen: CenarioDGP) -> pd.DataFrame:
+    """Populacao -> sorteio -> desfecho observado, com a mesma semente em toda etapa."""
+    return observar(sortear(gerar_populacao(cen), seed=cen.seed), cen, seed=cen.seed)
+
+
 def _delta_ic(p_t, n_t, p_c, n_c):
     delta = p_t - p_c
     se = np.sqrt(p_t * (1 - p_t) / max(n_t, 1) + p_c * (1 - p_c) / max(n_c, 1))
@@ -72,7 +77,7 @@ def estimar(df: pd.DataFrame) -> pd.DataFrame:
     return res
 
 
-def ic_conjunto(delta, se, n_mc=200_000, seed=cfg.SEED,
+def ic_conjunto(delta, se, n_mc=50_000, seed=cfg.SEED,
                 valor_min=cfg.VALOR_CLIENTE_RETIDO_MIN,
                 valor_max=cfg.VALOR_CLIENTE_RETIDO_MAX, custo=cfg.CUSTO_ACAO):
     """
@@ -92,14 +97,6 @@ def ic_conjunto(delta, se, n_mc=200_000, seed=cfg.SEED,
     }
 
 
-def _margem_ponto(delta, se, valor):
-    """Margem incremental e IC 95% a um valor de cliente fixo (so incerteza do efeito)."""
-    return {"valor": valor,
-            "margem_mediana": delta * valor - cfg.CUSTO_ACAO,
-            "margem_ic_baixo": (delta - Z * se) * valor - cfg.CUSTO_ACAO,
-            "margem_ic_alto": (delta + Z * se) * valor - cfg.CUSTO_ACAO}
-
-
 def decidir(delta, se, **kw):
     """Regra pre-registrada (spec secao 3), com IC conjunto efeito x valor do cliente."""
     ic = ic_conjunto(delta, se, **kw)
@@ -109,9 +106,6 @@ def decidir(delta, se, **kw):
         veredito = "nao escalar"
     else:
         veredito = "zona morta / depende do valor do cliente"
-    # sensibilidade de dois pontos: margem de contribuicao vs LTV bruto
-    ic["margem_conservador_105"] = round(_margem_ponto(delta, se, 105)["margem_ic_baixo"], 2)
-    ic["margem_otimista_350"] = round(_margem_ponto(delta, se, 350)["margem_ic_baixo"], 2)
     return {**ic, "veredito": veredito}
 
 
@@ -124,9 +118,8 @@ def validar_recuperacao(cen: CenarioDGP | None = None, n_rep: int = 60) -> pd.Da
     base = cen or CenarioDGP()
     reg = []
     for s in range(n_rep):
-        c = CenarioDGP(**{**base.__dict__, "seed": 1000 + s, "_efeitos": []})
-        df = observar(sortear(gerar_populacao(c), seed=c.seed), c, seed=c.seed)
-        for _, r in estimar(df).iterrows():
+        c = CenarioDGP(**{**base.__dict__, "seed": 1000 + s})
+        for _, r in estimar(simular(c)).iterrows():
             if r["estrato"] == -1:
                 continue
             reg.append({"estrato": int(r["estrato"]), "delta": r["delta"],
@@ -145,7 +138,7 @@ def validar_recuperacao(cen: CenarioDGP | None = None, n_rep: int = 60) -> pd.Da
 
 def analisar(cen: CenarioDGP | None = None) -> dict:
     cen = cen or CenarioDGP()
-    df = observar(sortear(gerar_populacao(cen), seed=cen.seed), cen)
+    df = simular(cen)
     est = estimar(df)
 
     por_estrato = []

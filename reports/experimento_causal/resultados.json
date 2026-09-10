@@ -6,9 +6,9 @@
   },
   "elegiveis_por_mes": {
     "total": 1806,
-    "0": 312,
+    "0": 305,
     "1": 458,
-    "2": 1036
+    "2": 1043
   },
   "cenarios": {
     "nulo": {
@@ -45,8 +45,8 @@
           ],
           "margem_mediana": -32.66,
           "margem_ic95": [
-            -43.9,
-            -23.31
+            -44.0,
+            -23.37
           ],
           "prob_margem_positiva": 0.0,
           "veredito": "nao escalar"
@@ -60,10 +60,10 @@
             -0.0281,
             0.0278
           ],
-          "margem_mediana": -30.03,
+          "margem_mediana": -30.04,
           "margem_ic95": [
-            -36.97,
-            -23.01
+            -37.03,
+            -23.03
           ],
           "prob_margem_positiva": 0.0,
           "veredito": "nao escalar"
@@ -77,9 +77,9 @@
             -0.0253,
             0.0028
           ],
-          "margem_mediana": -32.33,
+          "margem_mediana": -32.34,
           "margem_ic95": [
-            -36.81,
+            -36.85,
             -29.4
           ],
           "prob_margem_positiva": 0.0,
@@ -94,10 +94,10 @@
             -0.0216,
             0.004
           ],
-          "margem_mediana": -31.81,
+          "margem_mediana": -31.82,
           "margem_ic95": [
-            -35.76,
-            -29.11
+            -35.79,
+            -29.12
           ],
           "prob_margem_positiva": 0.0,
           "veredito": "nao escalar"
@@ -136,12 +136,12 @@
             0.0292,
             0.1142
           ],
-          "margem_mediana": -14.63,
+          "margem_mediana": -14.64,
           "margem_ic95": [
-            -24.84,
-            2.45
+            -24.85,
+            2.55
           ],
-          "prob_margem_positiva": 0.046,
+          "prob_margem_positiva": 0.045,
           "veredito": "zona morta / depende do valor do cliente"
         },
         {
@@ -153,10 +153,10 @@
             0.0113,
             0.0692
           ],
-          "margem_mediana": -21.47,
+          "margem_mediana": -21.49,
           "margem_ic95": [
-            -27.87,
-            -10.59
+            -27.89,
+            -10.56
           ],
           "prob_margem_positiva": 0.0,
           "veredito": "zona morta / depende do valor do cliente"
@@ -170,10 +170,10 @@
             -0.0135,
             0.0152
           ],
-          "margem_mediana": -29.83,
+          "margem_mediana": -29.84,
           "margem_ic95": [
-            -33.32,
-            -26.16
+            -33.35,
+            -26.19
           ],
           "prob_margem_positiva": 0.0,
           "veredito": "nao escalar"
@@ -187,10 +187,10 @@
             0.0096,
             0.036
           ],
-          "margem_mediana": -25.1,
+          "margem_mediana": -25.11,
           "margem_ic95": [
             -28.32,
-            -19.75
+            -19.72
           ],
           "prob_margem_positiva": 0.0,
           "veredito": "zona morta / depende do valor do cliente"
@@ -229,10 +229,10 @@
             0.089,
             0.1755
           ],
-          "margem_mediana": -0.66,
+          "margem_mediana": -0.68,
           "margem_ic95": [
-            -16.86,
-            22.02
+            -16.89,
+            22.07
           ],
           "prob_margem_positiva": 0.479,
           "veredito": "zona morta / depende do valor do cliente"
@@ -248,7 +248,7 @@
           ],
           "margem_mediana": -2.08,
           "margem_ic95": [
-            -16.96,
+            -16.99,
             16.94
           ],
           "prob_margem_positiva": 0.431,
@@ -265,8 +265,8 @@
           ],
           "margem_mediana": -16.28,
           "margem_ic95": [
-            -23.62,
-            -6.79
+            -23.63,
+            -6.78
           ],
           "prob_margem_positiva": 0.0,
           "veredito": "zona morta / depende do valor do cliente"
@@ -280,10 +280,10 @@
             0.0752,
             0.1031
           ],
-          "margem_mediana": -9.83,
+          "margem_mediana": -9.81,
           "margem_ic95": [
-            -20.3,
-            2.13
+            -20.32,
+            2.15
           ],
           "prob_margem_positiva": 0.073,
           "veredito": "zona morta / depende do valor do cliente"
@@ -322,12 +322,12 @@
             0.2183,
             0.3067
           ],
-          "margem_mediana": 29.35,
+          "margem_mediana": 29.4,
           "margem_ic95": [
-            -1.54,
-            65.13
+            -1.6,
+            65.2
           ],
-          "prob_margem_positiva": 0.957,
+          "prob_margem_positiva": 0.956,
           "veredito": "zona morta / depende do valor do cliente"
         },
         {
@@ -339,12 +339,12 @@
             0.1627,
             0.2259
           ],
-          "margem_mediana": 13.95,
+          "margem_mediana": 13.98,
           "margem_ic95": [
-            -8.89,
-            40.22
+            -8.93,
+            40.25
           ],
-          "prob_margem_positiva": 0.795,
+          "prob_margem_positiva": 0.793,
           "veredito": "zona morta / depende do valor do cliente"
         },
         {
@@ -356,10 +356,10 @@
             0.0645,
             0.0966
           ],
-          "margem_mediana": -11.85,
+          "margem_mediana": -11.83,
           "margem_ic95": [
-            -21.37,
-            -0.36
+            -21.39,
+            -0.34
           ],
           "prob_margem_positiva": 0.02,
           "veredito": "zona morta / depende do valor do cliente"
@@ -373,12 +373,12 @@
             0.1257,
             0.1544
           ],
-          "margem_mediana": 1.8,
+          "margem_mediana": 1.87,
           "margem_ic95": [
-            -14.52,
-            19.27
+            -14.56,
+            19.3
           ],
-          "prob_margem_positiva": 0.553,
+          "prob_margem_positiva": 0.555,
           "veredito": "zona morta / depende do valor do cliente"
         }
       ]

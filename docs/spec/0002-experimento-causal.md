@@ -176,7 +176,8 @@ reports/experimento_causal/             figuras, pavc_cenarios.md, resultados.js
 tests/test_experimento_causal.py        seed determinística, recuperação do efeito, limites
 ```
 
-Dado sintético fica em memória, regenerável por seed (nunca persistido). Só as figuras e o
+Dado sintético fica em memória, regenerável por seed (nunca persistido). A população
+elegível real e o scorer têm cache de processo (`lru_cache`). Só as figuras e o
 `resultados.json` citados pelo notebook e pelo README entram no git.
 
 **Status (2026-09-10):** implementado na branch `feat/experimento-causal` (ticket 0015 feito).
