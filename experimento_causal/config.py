@@ -90,6 +90,33 @@ PODER = 0.90                   # alto, para proteger contra o Erro A (ADR-0002)
 DURACAO_MAX_MESES = 6          # teto; se o IC ainda cruza o break-even, nao escala
 
 # ---------------------------------------------------------------------------
+# DGP - gerador sintetico (ticket 0015). Valores plantados de proposito: o
+# prototipo demonstra que a analise RECUPERA o que foi plantado, nao mede efeito
+# real. Cenario principal = efeito heterogeneo por estrato.
+#
+# p0 por estrato (recompra 90d SEM acao): detrator quase certo recompra menos.
+# Ancorado na faixa [P0_RECOMPRA_MIN, P0_RECOMPRA_MAX] declarada acima.
+DGP_P0_POR_ESTRATO = [0.14, 0.10, 0.06]           # estratos [0.60,0.75) / [0.75,0.90) / [0.90,1.0]
+DGP_P0_NAO_DETRATOR = 0.30                         # quem nao ia virar detrator recompra mais
+# efeito verdadeiro (lift aditivo na prob de recompra) por estrato, so em detrator
+DGP_EFEITO_POR_ESTRATO = {
+    # recuperavel -> quase certo. Estrato 0 planta acima do break-even otimista
+    # (0,086) e abaixo do conservador (0,286): a decisao de escalar passa a
+    # depender do valor do cliente retido, que e o ponto do ADR-0002.
+    "heterogeneo": [0.12, 0.05, 0.012],
+    "nulo": [0.0, 0.0, 0.0],
+    "rentavel": [0.20, 0.14, 0.07],               # decisao vira com o valor do cliente
+    "forte": [0.38, 0.22, 0.09],                  # estrato 0 paga ate no cenario conservador
+}
+DGP_EFEITO_NAO_DETRATOR = 0.01                     # cupom quase nao move quem ja estava ok
+DGP_DECAIMENTO_NOVIDADE_MES = 0.15                 # fracao do efeito perdida por mes de coorte
+DGP_MESES_PADRAO = 6
+
+# Cenarios PAVC que o gerador sabe injetar (spec criterios de aceite)
+DGP_CONTAMINACAO_CONTROLE = 0.0                    # fracao do controle que recebe acao por fora
+DGP_ANCORA_JANELA = "entrega"                      # "entrega" (correto) ou "acao" (assimetrico)
+
+# ---------------------------------------------------------------------------
 # Rotulo obrigatorio em toda saida
 # ---------------------------------------------------------------------------
 ROTULO_SINTETICO = "dados sinteticos, demonstracao de metodo"
