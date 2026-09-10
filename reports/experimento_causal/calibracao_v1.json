@@ -5,11 +5,41 @@
   "brier": 0.136,
   "ece": 0.098,
   "mce": 0.2011,
-  "corte_elegibilidade": 0.35,
-  "clientes_no_corte": 2019,
-  "densidade_detrator_no_corte": 0.8484,
-  "isotonica_ece_antes": 0.0927,
-  "isotonica_ece_depois": 0.0195,
+  "ece_cru_cv_externa": 0.098,
+  "ece_scorer_recalibrado_cv_externa": 0.0125,
+  "elegibilidade_recalibrada": {
+    "corte": 0.6,
+    "n_elegivel": 1806,
+    "elegivel_por_mes": 1806,
+    "pct_da_base": 0.7224,
+    "densidade_detrator": 0.9313,
+    "estratos": [
+      {
+        "faixa": [
+          0.6,
+          0.75
+        ],
+        "n": 305,
+        "densidade_detrator": 0.7213
+      },
+      {
+        "faixa": [
+          0.75,
+          0.9
+        ],
+        "n": 458,
+        "densidade_detrator": 0.9192
+      },
+      {
+        "faixa": [
+          0.9,
+          1.01
+        ],
+        "n": 1043,
+        "densidade_detrator": 0.9981
+      }
+    ]
+  },
   "veredito": {
     "calibrado_o_suficiente": false,
     "recalibracao_isotonica_ajuda": true,

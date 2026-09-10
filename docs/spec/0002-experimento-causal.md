@@ -22,11 +22,19 @@ teste do incremento do modelo isolado (com score vs sem score), que é um segund
 
 ## 0. Pré-requisitos (antes de fixar os cortes de estrato)
 
-- **Reliability plot do modelo v1** (PAVC falha 1 e blind spot 2). As probabilidades do RF com
-  `class_weight='balanced'` nunca foram checadas quanto a calibração. Se `P(Detrator) = 0,35`
-  não corresponde a 35 por cento de chance real, os baldes de estrato da secao 2 não medem o
-  que dizem medir. Gerar o gráfico (curva de confiabilidade mais Brier score) e, se houver
-  descalibração, aplicar calibração (isotônica ou Platt) antes de definir os cortes.
+- **Reliability plot do modelo v1** (PAVC falha 1 e blind spot 2). **Feito em 2026-09-10**
+  (`experimento_causal/calibracao_modelo.py`, `reports/experimento_causal/reliability_v1.png`).
+  Achado: o RF com `class_weight='balanced'` sobre 74 por cento de maioria **subestima o risco
+  em toda a faixa** (curva de confiabilidade inteira acima da diagonal, ECE 0,098, MCE 0,201).
+  Recalibração isotônica via `CalibratedClassifierCV` derruba o ECE para **0,013** (medido por
+  CV externa, sem contaminação in-sample). O experimento usa o scorer recalibrado
+  (`models/v1/risco_detrator.pkl`), não o `predict_proba` cru.
+- **A seletividade do modelo é modesta, e isso é um achado, não um bug.** Quando há falha de
+  entrega, a maioria dos clientes vira detrator de fato (base 74 por cento, teto observado ~94
+  por cento). O filtro `atraso > 0` sozinho já dá ~78 por cento de densidade; o modelo em cima
+  sobe para ~93 por cento ao custo de ~28 por cento do volume. O valor do modelo no experimento
+  é o **ranking de risco** para estratificação e para a política de escala, não um gate sim/não
+  afiado. O notebook e o README devem dizer isso com todas as letras.
 
 ## 1. Contrato de eventos (ticket 0012)
 
@@ -38,10 +46,10 @@ Unidade do registro: cliente. Um registro por cliente por entrada no experimento
 |---|---|
 | `hash_cliente` | Link com a recompra futura sem PII. Hash estável com salt, sem CPF nem e-mail em claro. |
 | `features_t0` (as 20 de produção) | `customer_service_contacts` e `complaints_count` crescem depois; o valor em t0 some. |
-| `p_detrator_t0` e `versao_modelo` | Se o modelo for retreinado, o score que definiu a elegibilidade não volta. |
-| `elegivel` e `motivo_inelegivel` | Auditoria da regra dos três filtros. |
+| `p_detrator_t0` (recalibrada) e `versao_scorer` | Score do `risco_detrator.pkl` no momento t0. Se o scorer for retreinado, o valor que definiu a elegibilidade não volta. |
+| `elegivel` e `motivo_inelegivel` | Auditoria da regra dos três filtros. Corte: `p_detrator_t0 >= 0,60`. |
 | `braco` (tratamento / controle) | Sem isso não há comparação. |
-| `estrato` | Faixa de `P(Detrator)` e faixa de dias de atraso (ver secao 2). |
+| `estrato` | Faixa de `p_detrator_t0` recalibrada (ver secao 2). |
 | `semente_randomizacao` | Reprodutibilidade do sorteio. |
 | `ts_t0` | Fecha a janela de 90 dias e permite checar contaminação temporal. |
 | `reclamacoes_ate_t0`, `contatos_sac_ate_t0` | Baseline dos guardrails; mede-se o delta, não o nível. |
@@ -65,19 +73,24 @@ Base legal: execução de contrato mais legítimo interesse. Retenção do regis
 
 - **Unidade de randomização:** cliente. Fixado no braço no primeiro evento elegível; permanece
   até o fim do experimento mesmo com novos pedidos atrasados.
-- **Estratos:** faixa de `P(Detrator)` em três baldes (0,35 a 0,55; 0,55 a 0,75; acima de 0,75)
-  cruzada com dias de atraso (1 a 3; 4 ou mais). Seis estratos; sorteio dentro de cada, na
-  proporção aproximada de 75 por cento tratamento e 25 por cento controle.
+- **Estratos:** faixa de probabilidade calibrada em três baldes, `[0,60; 0,75)`, `[0,75; 0,90)`,
+  `[0,90; 1,0]`. Sorteio dentro de cada, ~75 por cento tratamento e ~25 por cento controle.
+  Densidades de detrator observadas na base real: 0,72 / 0,92 / 0,998; tamanhos (num mês de
+  dados) 305 / 458 / 1043.
+  O eixo "dias de atraso" foi **descartado** como estrato: entre os elegíveis quase todos têm
+  atraso de 1 a 3 dias (o filtro `atraso>0` e o modelo já absorveram esse sinal), então cruzar
+  geraria células degeneradas. Interação com tenure, valor do pedido etc. é análise exploratória
+  pós-hoc, não estrato pré-registrado.
 - **Objetivo dos estratos:** balanço por construção, ganho de precisão e leitura de efeito
-  heterogêneo, que alimenta a política de escala do ticket 0016.
-- **Colapso de estrato (PAVC edge case 1):** antes de abrir o sorteio, células com contagem
-  esperada abaixo de um piso (ex. 30 clientes por braço) são fundidas segundo uma ordem de
-  merge definida a priori (primeiro colapsa dias de atraso, depois faixa de `P`). A regra é
-  fixada no pré-registro, nunca decidida com os dados na mão.
-- **Modelo congelado (PAVC edge case 3):** a versão do modelo que produz `P(Detrator)` fica
-  travada pela duração inteira do experimento. Um retreino no meio mudaria o score dos mesmos
-  inputs e tornaria os cortes de estrato inconsistentes entre coortes. Gravar a versão (secao
-  1) não basta; ela não pode mudar.
+  heterogêneo (o cupom pode não mover um detrator quase certo e mover um ambíguo, mesmo com
+  densidades parecidas), que alimenta a política de escala do ticket 0016.
+- **Colapso de estrato (PAVC edge case 1):** antes de abrir o sorteio, um balde com contagem
+  esperada abaixo do piso (`config.PISO_CELULA_POR_BRACO`, 30 por braço) é fundido com o balde
+  vizinho de risco mais próximo. A regra é fixada no `config.py`, nunca decidida com o dado na mão.
+- **Scorer congelado (PAVC edge case 3):** a versão de `models/v1/risco_detrator.pkl` que produz
+  `p_detrator_t0` fica travada pela duração inteira do experimento. Um retreino no meio mudaria o
+  score dos mesmos inputs e tornaria os cortes de estrato inconsistentes entre coortes. Gravar a
+  versão (secao 1) não basta; ela não pode mudar.
 - **Grupo de controle:** 20 a 30 por cento dos elegíveis, sem nenhuma ação. Defensável porque
   o status quo já é não agir; o controle recebe a ação no rollout pós-experimento.
 - **Guardrails:** taxa de detrator entre respondentes e volume de reclamações e contatos de

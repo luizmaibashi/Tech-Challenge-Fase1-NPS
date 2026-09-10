@@ -36,9 +36,11 @@ Pedidos que satisfazem os três filtros simultâneos:
 1. entrega concluída **com atraso** (`delivery_delay_days > 0`);
 2. cliente **ainda não respondeu** à pesquisa de NPS do pedido (é a janela que a
    empresa hoje desperdiça — só coleta NPS depois do dano);
-3. `P(Detrator)` do modelo **≥ 0,35** — corte mais alto que o 0,19 de operação. O 0,19
-   minimiza custo na operação plena; para o experimento queremos densidade de detrator
-   alta e volume administrável, não cobertura máxima.
+3. `P(Detrator)` do modelo acima de um corte mais alto que o 0,19 de operação — para o
+   experimento queremos densidade de detrator alta e volume administrável, não cobertura máxima.
+   **Revisado em 2026-09-10 (spec 0002 §0):** o diagnóstico de calibração mostrou que o modelo
+   subestima risco e que `0,35` pegava 81% da base; o corte virou **0,60 sobre a probabilidade
+   recalibrada** (densidade ~93%, ~1.800 elegíveis/mês).
 
 Não é "todos com `P ≥ 0,19`" — isso seria ~92% da base (2.306 de 2.500), orçamento de
 ação ~R$ 69 mil/mês e efeito diluído a ponto de o teste nascer subpotente.

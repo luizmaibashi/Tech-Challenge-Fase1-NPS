@@ -21,19 +21,28 @@ vale para dgp.py em diante.
 """
 import json
 
+import joblib
 import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
+from sklearn.calibration import CalibratedClassifierCV
 from sklearn.ensemble import RandomForestClassifier
-from sklearn.isotonic import IsotonicRegression
 from sklearn.metrics import brier_score_loss
-from sklearn.model_selection import StratifiedKFold, train_test_split
+from sklearn.model_selection import StratifiedKFold
 from sklearn.preprocessing import StandardScaler
 
 from utils import criar_features, FEATURES_MODELO
 from experimento_causal import config as cfg
+
+
+def _carregar_xy():
+    df = pd.read_csv(cfg.DATA_PATH).drop(columns=cfg.LEAKAGE_COLS)
+    df = criar_features(df)
+    X = df[FEATURES_MODELO].to_numpy()
+    y = (df["nps_score"] <= cfg.DETRATOR_CUTOFF).astype(int).to_numpy()
+    return df, X, y
 
 
 def _proba_oof(X, y, seed=cfg.SEED):
@@ -83,77 +92,161 @@ def _curva_confiabilidade(y_true, proba, n_bins=10):
     return agg["conf"].to_numpy(), agg["acerto"].to_numpy(), agg["n"].to_numpy()
 
 
-def _ganho_isotonico(proba, y, seed=cfg.SEED):
+def _ece_scorer_honesto(X, y, seed=cfg.SEED):
     """
-    Quanto uma recalibracao isotonica reduziria o ECE, medido honestamente:
-    fita a isotonica na metade A, avalia o ECE na metade B (nunca na mesma).
+    ECE do scorer recalibrado (StandardScaler + CalibratedClassifierCV) medido por
+    CV externa: cada fold treina o scorer inteiro do zero e mede o ECE no fold de
+    fora. Sem contaminacao in-sample. Retorna (ece_cru_oof, ece_scorer_oof).
     """
-    ia, ib = train_test_split(np.arange(len(y)), test_size=0.5,
-                              random_state=seed, stratify=y)
-    iso = IsotonicRegression(out_of_bounds="clip")
-    iso.fit(proba[ia], y[ia])
-    proba_b_bruta = proba[ib]
-    proba_b_calib = iso.predict(proba[ib])
-    ece_antes, _, _ = _ece_mce(y[ib], proba_b_bruta)
-    ece_depois, _, _ = _ece_mce(y[ib], proba_b_calib)
-    return ece_antes, ece_depois
+    cv = StratifiedKFold(cfg.CV_FOLDS, shuffle=True, random_state=seed)
+    p_cru = np.zeros(len(y))
+    p_cal = np.zeros(len(y))
+    for tr, te in cv.split(X, y):
+        sc = StandardScaler().fit(X[tr])
+        Xtr, Xte = sc.transform(X[tr]), sc.transform(X[te])
+        rf = RandomForestClassifier(**cfg.RF_PARAMS).fit(Xtr, y[tr])
+        p_cru[te] = rf.predict_proba(Xte)[:, 1]
+        cal = CalibratedClassifierCV(
+            RandomForestClassifier(**cfg.RF_PARAMS), method="isotonic",
+            cv=StratifiedKFold(cfg.CV_FOLDS, shuffle=True, random_state=seed),
+        ).fit(Xtr, y[tr])
+        p_cal[te] = cal.predict_proba(Xte)[:, 1]
+    ece_cru, _, _ = _ece_mce(y, p_cru)
+    ece_cal, _, _ = _ece_mce(y, p_cal)
+    return float(ece_cru), float(ece_cal)
 
 
-def _grafico(conf, acerto, proba, y_detrator, ece, brier, destino):
+def _grafico(y, proba_cru, proba_calib, ece_cru, ece_calib, brier, destino):
     fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(13, 5.2))
 
+    conf_c, acerto_c, _ = _curva_confiabilidade(y, proba_cru)
+    conf_r, acerto_r, _ = _curva_confiabilidade(y, proba_calib)
+
     ax1.plot([0, 1], [0, 1], "--", color="#888", label="calibracao perfeita")
-    ax1.plot(conf, acerto, "o-", color="#2c7fb8", label="modelo v1 (OOF)")
-    ax1.axvline(cfg.P_DETRATOR_OPERACAO, color="#e74c3c", ls=":",
-                label=f"corte operacao {cfg.P_DETRATOR_OPERACAO}")
-    ax1.axvline(cfg.P_DETRATOR_ELEGIVEL, color="#2ecc71", ls=":",
-                label=f"corte elegibilidade {cfg.P_DETRATOR_ELEGIVEL}")
+    ax1.plot(conf_c, acerto_c, "o-", color="#e74c3c",
+             label=f"modelo v1 cru  (ECE {ece_cru:.3f})")
+    ax1.plot(conf_r, acerto_r, "s-", color="#2ecc71",
+             label=f"recalibrado (isotonica)  (ECE {ece_calib:.3f})")
     ax1.set_xlabel("probabilidade prevista de ser detrator")
     ax1.set_ylabel("frequencia observada de detrator")
-    ax1.set_title(f"Curva de confiabilidade  |  Brier={brier:.3f}  ECE={ece:.3f}")
+    ax1.set_title(f"Curva de confiabilidade  |  Brier cru = {brier:.3f}")
     ax1.legend(fontsize=8, loc="upper left")
     ax1.grid(alpha=0.3)
     ax1.set_xlim(0, 1)
     ax1.set_ylim(0, 1)
 
-    ax2.hist(proba[y_detrator == 1], bins=30, alpha=0.6, color="#d95f02",
+    ax2.hist(proba_calib[y == 1], bins=30, alpha=0.6, color="#d95f02",
              label="detrator real")
-    ax2.hist(proba[y_detrator == 0], bins=30, alpha=0.6, color="#1b9e77",
+    ax2.hist(proba_calib[y == 0], bins=30, alpha=0.6, color="#1b9e77",
              label="nao detrator real")
-    ax2.axvline(cfg.P_DETRATOR_ELEGIVEL, color="#2ecc71", ls=":")
-    ax2.set_xlabel("probabilidade prevista de ser detrator")
+    ax2.axvline(cfg.P_DETRATOR_ELEGIVEL, color="#2c3e50", ls=":",
+                label=f"corte elegibilidade {cfg.P_DETRATOR_ELEGIVEL}")
+    ax2.set_xlabel("probabilidade recalibrada de ser detrator")
     ax2.set_ylabel("clientes")
-    ax2.set_title("Distribuicao das probabilidades previstas")
+    ax2.set_title("Distribuicao das probabilidades recalibradas")
     ax2.legend(fontsize=8)
     ax2.grid(alpha=0.3)
 
-    fig.suptitle("Modelo v1 - diagnostico de calibracao (dataset real da Fase 1)",
-                 fontsize=12)
+    fig.suptitle(f"Modelo v1 - diagnostico de calibracao "
+                 f"(dataset real da Fase 1, n={len(y)})", fontsize=12)
     fig.tight_layout()
     fig.savefig(destino, dpi=150, bbox_inches="tight")
     plt.close(fig)
 
 
+def treinar_scorer(salvar=True):
+    """
+    Scorer de risco do experimento: StandardScaler + RF binario recalibrado por
+    isotonica via CalibratedClassifierCV.
+
+    CalibratedClassifierCV fita o RF em cada fold de CV e ajusta a isotonica sobre
+    a saida held-out do fold, nunca in-sample. No predict, faz a media das copias
+    calibradas por fold. Isso resolve o descasamento entre a probabilidade OOF (em
+    que a isotonica aprende) e a probabilidade in-sample (com que um RF unico
+    pontuaria), que inflava o ECE quando a isotonica era colada num RF final a mao.
+
+    O scaler e fitado em todo o dataset de proposito: e artefato de deploy, nao ha
+    holdout a proteger (a qualidade de calibracao e medida a parte por OOF em
+    diagnosticar()). Persistido em cfg.SCORER_PATH.
+    """
+    _, X, y = _carregar_xy()
+
+    scaler = StandardScaler().fit(X)
+    Xs = scaler.transform(X)
+
+    calibrado = CalibratedClassifierCV(
+        RandomForestClassifier(**cfg.RF_PARAMS),
+        method="isotonic",
+        cv=StratifiedKFold(cfg.CV_FOLDS, shuffle=True, random_state=cfg.SEED),
+    ).fit(Xs, y)
+
+    bundle = {"scaler": scaler, "modelo": calibrado,
+              "features": FEATURES_MODELO, "alvo": "detrator (nps_score <= 6)"}
+    if salvar:
+        cfg.SCORER_PATH.parent.mkdir(parents=True, exist_ok=True)
+        joblib.dump(bundle, cfg.SCORER_PATH)
+    return bundle
+
+
+def carregar_scorer():
+    if not cfg.SCORER_PATH.exists():
+        return treinar_scorer(salvar=True)
+    return joblib.load(cfg.SCORER_PATH)
+
+
+def prever_risco(df_features, bundle=None):
+    """P(Detrator) calibrada para um DataFrame que ja passou por criar_features()."""
+    bundle = bundle or carregar_scorer()
+    Xs = bundle["scaler"].transform(df_features[bundle["features"]].to_numpy())
+    return bundle["modelo"].predict_proba(Xs)[:, 1]
+
+
+def resumo_elegibilidade(df_features=None):
+    """
+    Sobre a probabilidade JA recalibrada (o que o experimento usa): quantos clientes
+    passam no corte de elegibilidade e qual a densidade de detrator por estrato.
+    """
+    if df_features is None:
+        df_features, _, _ = _carregar_xy()
+    y = (df_features["nps_score"] <= cfg.DETRATOR_CUTOFF).astype(int).to_numpy()
+    risco = prever_risco(df_features)
+
+    elegivel = risco >= cfg.P_DETRATOR_ELEGIVEL
+    frac_base = 2500 / len(y)  # dataset e ~1 mes; README usa 2500 pedidos/mes
+    estratos = []
+    for lo, hi in cfg.FAIXAS_P:
+        m = elegivel & (risco >= lo) & (risco < hi)
+        estratos.append({
+            "faixa": [lo, hi],
+            "n": int(m.sum()),
+            "densidade_detrator": round(float(y[m].mean()), 4) if m.any() else None,
+        })
+    return {
+        "corte": cfg.P_DETRATOR_ELEGIVEL,
+        "n_elegivel": int(elegivel.sum()),
+        "elegivel_por_mes": int(round(elegivel.sum() * frac_base)),
+        "pct_da_base": round(float(elegivel.mean()), 4),
+        "densidade_detrator": round(float(y[elegivel].mean()), 4) if elegivel.any() else None,
+        "estratos": estratos,
+    }
+
+
 def diagnosticar(salvar=True, verbose=True):
-    df = pd.read_csv(cfg.DATA_PATH).drop(columns=cfg.LEAKAGE_COLS)
-    df = criar_features(df)
-    X = df[FEATURES_MODELO].to_numpy()
-    y = (df["nps_score"] <= cfg.DETRATOR_CUTOFF).astype(int).to_numpy()
+    df, X, y = _carregar_xy()
 
     proba = _proba_oof(X, y)
+    proba_calib = prever_risco(df)  # scorer recalibrado (o que o experimento usa)
 
     brier = brier_score_loss(y, proba)
     ece, mce, bins = _ece_mce(y, proba)
-    conf, acerto, _ = _curva_confiabilidade(y, proba)
-    ece_iso_antes, ece_iso_depois = _ganho_isotonico(proba, y)
-
-    # densidade de detrator dentro do corte de elegibilidade
-    mask_elegivel = proba >= cfg.P_DETRATOR_ELEGIVEL
-    densidade_elegivel = float(y[mask_elegivel].mean()) if mask_elegivel.any() else float("nan")
+    ece_cru_oof, ece_scorer_oof = _ece_scorer_honesto(X, y)
 
     # veredito: ECE abaixo de 0,05 e a folga usual para tratar como probabilidade
     calibrado = ece < 0.05
-    isotonica_ajuda = (ece_iso_antes - ece_iso_depois) > 0.02
+    isotonica_ajuda = (ece_cru_oof - ece_scorer_oof) > 0.02
+
+    # elegibilidade sobre a probabilidade JA recalibrada (o que o experimento usa)
+    elgb = resumo_elegibilidade(df)
 
     resultado = {
         "rotulo": "diagnostico sobre dataset real da Fase 1",
@@ -162,11 +255,9 @@ def diagnosticar(salvar=True, verbose=True):
         "brier": round(float(brier), 4),
         "ece": round(ece, 4),
         "mce": round(mce, 4),
-        "corte_elegibilidade": cfg.P_DETRATOR_ELEGIVEL,
-        "clientes_no_corte": int(mask_elegivel.sum()),
-        "densidade_detrator_no_corte": round(densidade_elegivel, 4),
-        "isotonica_ece_antes": round(ece_iso_antes, 4),
-        "isotonica_ece_depois": round(ece_iso_depois, 4),
+        "ece_cru_cv_externa": round(ece_cru_oof, 4),
+        "ece_scorer_recalibrado_cv_externa": round(ece_scorer_oof, 4),
+        "elegibilidade_recalibrada": elgb,
         "veredito": {
             "calibrado_o_suficiente": bool(calibrado),
             "recalibracao_isotonica_ajuda": bool(isotonica_ajuda),
@@ -185,7 +276,7 @@ def diagnosticar(salvar=True, verbose=True):
 
     if salvar:
         cfg.REPORTS_DIR.mkdir(parents=True, exist_ok=True)
-        _grafico(conf, acerto, proba, y, ece, brier,
+        _grafico(y, proba, proba_calib, ece_cru_oof, ece_scorer_oof, brier,
                  cfg.REPORTS_DIR / "reliability_v1.png")
         with open(cfg.REPORTS_DIR / "calibracao_v1.json", "w", encoding="utf-8") as f:
             json.dump(resultado, f, indent=2, ensure_ascii=False)
@@ -196,12 +287,21 @@ def diagnosticar(salvar=True, verbose=True):
         print("=" * 74)
         print(f"n = {resultado['n']}   taxa de detrator na base = "
               f"{resultado['taxa_detrator_base']:.1%}")
-        print(f"Brier = {brier:.3f}   ECE = {ece:.3f}   MCE = {mce:.3f}")
-        print(f"No corte P >= {cfg.P_DETRATOR_ELEGIVEL}: "
-              f"{resultado['clientes_no_corte']} clientes, "
-              f"{densidade_elegivel:.1%} sao detrator de fato")
-        print(f"ECE com recalibracao isotonica: {ece_iso_antes:.3f} -> "
-              f"{ece_iso_depois:.3f} (split separado)")
+        print(f"Brier = {brier:.3f}   ECE = {ece:.3f}   MCE = {mce:.3f}   "
+              f"(modelo v1 cru, OOF)")
+        print(f"ECE por CV externa: cru {ece_cru_oof:.3f} -> "
+              f"scorer recalibrado {ece_scorer_oof:.3f}")
+        print("-" * 74)
+        print(f"Elegibilidade (probabilidade recalibrada, corte "
+              f">= {elgb['corte']}):")
+        print(f"  {elgb['n_elegivel']} clientes ({elgb['pct_da_base']:.0%} da base), "
+              f"~{elgb['elegivel_por_mes']}/mes, densidade de detrator "
+              f"{elgb['densidade_detrator']:.1%}")
+        for e in elgb["estratos"]:
+            d = e["densidade_detrator"]
+            print(f"  estrato [{e['faixa'][0]}, {e['faixa'][1]}): n={e['n']:4d}  "
+                  f"densidade {d:.1%}" if d is not None else
+                  f"  estrato [{e['faixa'][0]}, {e['faixa'][1]}): n=0")
         print("-" * 74)
         print(f"VEREDITO: {resultado['veredito']['acao']}")
         print("=" * 74)
@@ -210,4 +310,7 @@ def diagnosticar(salvar=True, verbose=True):
 
 
 if __name__ == "__main__":
+    print("Treinando e salvando o scorer de risco recalibrado...")
+    treinar_scorer(salvar=True)
+    print(f"Scorer salvo em {cfg.SCORER_PATH.relative_to(cfg.RAIZ)}\n")
     diagnosticar()

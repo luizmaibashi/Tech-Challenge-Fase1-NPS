@@ -14,6 +14,10 @@ from pathlib import Path
 RAIZ = Path(__file__).resolve().parent.parent
 DATA_PATH = RAIZ / "data" / "desafio_nps_fase_1.csv"
 MODELO_PATH = RAIZ / "models" / "v1" / "pipeline_completo.pkl"
+# scorer de risco do experimento: StandardScaler + RF binario + isotonica,
+# fitado em calibracao_modelo.treinar_scorer(). Espelha o modelo binario de
+# threshold_calibration.py, com a recalibracao que a secao 0 do spec exige.
+SCORER_PATH = RAIZ / "models" / "v1" / "risco_detrator.pkl"
 REPORTS_DIR = RAIZ / "reports" / "experimento_causal"
 
 # ---------------------------------------------------------------------------
@@ -30,19 +34,28 @@ DETRATOR_CUTOFF = 6
 
 # ---------------------------------------------------------------------------
 # Elegibilidade (spec secao 1). t0 = falha de entrega detectada, pesquisa ainda
-# nao respondida. Corte de score mais alto que o 0,19 de operacao: no experimento
-# queremos densidade de detrator alta e volume administravel, nao cobertura maxima.
+# nao respondida. Corte sobre a probabilidade JA RECALIBRADA (secao 0).
+#
+# Revisado em 2026-09-10 apos o diagnostico de calibracao: o corte 0,35 original
+# pegava 81% da base a 85% de densidade de detrator (nao entregava "densidade
+# alta"). O modelo tem pouca seletividade porque, quando ha falha de entrega, a
+# maioria dos clientes vira detrator de fato (base 74%, teto ~94%). Corte 0,60
+# calibrado apara a cauda de moeda-ao-ar sem sacrificar o volume que o poder do
+# experimento precisa (PAVC falha 2). Densidade ~87%, ~1.930 elegiveis/mes.
 # ---------------------------------------------------------------------------
-P_DETRATOR_ELEGIVEL = 0.35
+P_DETRATOR_ELEGIVEL = 0.60
 P_DETRATOR_OPERACAO = 0.19  # ponto de operacao do deploy, so para referencia
 
 # ---------------------------------------------------------------------------
-# Estratos (spec secao 2). Faixa de P(Detrator) x dias de atraso. Sorteio dentro
-# de cada celula. Celula com contagem esperada abaixo do piso e fundida ANTES do
-# sorteio, na ordem: colapsa atraso primeiro, depois faixa de P.
+# Estratos (spec secao 2). So a faixa de probabilidade calibrada. O eixo "dias de
+# atraso" foi descartado como estrato: entre os elegiveis quase todos tem atraso
+# de 1 a 3 dias (o filtro atraso>0 e o modelo ja absorveram esse sinal), entao
+# cruzar geraria celulas degeneradas sem melhorar balanco. Sorteio dentro de cada
+# faixa; faixa com contagem esperada abaixo do piso por braco e fundida com a
+# vizinha ANTES do sorteio (regra fixada aqui, nunca decidida com o dado na mao).
+# Densidades observadas na base real: 0,68 / 0,86 / 0,96.
 # ---------------------------------------------------------------------------
-FAIXAS_P = [(0.35, 0.55), (0.55, 0.75), (0.75, 1.01)]
-FAIXAS_ATRASO_DIAS = [(1, 4), (4, 10_000)]  # [1,3] dias e [4, +)
+FAIXAS_P = [(0.60, 0.75), (0.75, 0.90), (0.90, 1.01)]
 PISO_CELULA_POR_BRACO = 30
 
 # ---------------------------------------------------------------------------
