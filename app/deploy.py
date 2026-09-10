@@ -22,7 +22,6 @@ import streamlit as st
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
-import matplotlib.patches as mpatches
 import joblib
 from utils import criar_features, FEATURES_MODELO
 
@@ -110,16 +109,22 @@ def load_model():
 
 # ─── Cálculo de ROI ───────────────────────────────────────────────────────────
 def calcular_roi(recall_detrator, n_pedidos_mes, taxa_detrator,
-                 custo_cupom, taxa_retencao, ltv_cliente):
+                 custo_cupom, taxa_retencao, ltv_cliente, precisao_modelo=0.789):
+    # precisao_modelo: no threshold calibrado (0,19) o modelo acerta ~79% das
+    # ações que dispara — os outros ~21% são Falsos Positivos (cupom gasto num
+    # cliente que não era Detrator). O custo de FP entra na conta, senão o ROI
+    # fica inflado. Fonte: reports/threshold_calibration.json (precision @ 0,19).
     detrat_mes    = int(n_pedidos_mes * taxa_detrator)
-    detectados    = int(detrat_mes * recall_detrator)
-    custo_total   = detectados * custo_cupom
+    detectados    = int(detrat_mes * recall_detrator)          # verdadeiros positivos
+    acoes_total   = int(detectados / precisao_modelo) if precisao_modelo > 0 else detectados
+    falsos_pos    = acoes_total - detectados
+    custo_total   = acoes_total * custo_cupom
     retidos       = int(detectados * taxa_retencao)
     receita_salva = retidos * ltv_cliente
     lucro         = receita_salva - custo_total
     roi_pct       = (lucro / custo_total * 100) if custo_total > 0 else 0
-    return dict(detrat_mes=detrat_mes, detectados=detectados,
-                custo=custo_total, receita=receita_salva,
+    return dict(detrat_mes=detrat_mes, detectados=detectados, falsos_pos=falsos_pos,
+                acoes_total=acoes_total, custo=custo_total, receita=receita_salva,
                 lucro=lucro, roi=roi_pct, retidos=retidos)
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -140,9 +145,9 @@ pipeline, model_path = load_model()
 
 if pipeline is None:
     st.error("""
-    ⚠️ **Pipeline não encontrado!**  
-    Execute o notebook `notebooks/Tech_challenge_fase1.ipynb` até o final.  
-    O arquivo `models/pipeline_completo.pkl` será gerado automaticamente.
+    ⚠️ **Modelo não encontrado!**
+    Rode `python train_pipeline.py` na raiz do projeto — ele gera
+    `models/v1/pipeline_completo.pkl`.
     """)
     st.stop()
 
@@ -166,9 +171,9 @@ with tab1:
         st.subheader("👤 Perfil do Cliente")
         customer_age            = st.slider("Idade", 18, 80, 35)
         customer_tenure_months  = st.slider("Tempo como cliente (meses)", 0, 120, 12)
-        regiao = st.selectbox("Região", ["Centro-Oeste","Nordeste","Norte","Sudeste","Sul"], index=3)
-        mapa_regioes = {"Centro-Oeste": 0, "Nordeste": 1, "Norte": 2, "Sudeste": 3, "Sul": 4}
-        customer_region_enc = mapa_regioes[regiao]
+        # Região não entra no modelo: a EDA mostrou distribuição uniforme entre
+        # as 5 regiões e correlação irrelevante com NPS (o problema é sistêmico
+        # na malha logística, não regional). Ver reports/eda_desafio_nps.md § 5.
 
         st.subheader("🛒 Transação")
         order_value            = st.number_input("Valor do Pedido (R$)", 10.0, 5000.0, 250.0, 10.0)
@@ -189,7 +194,6 @@ with tab1:
     pedido = pd.DataFrame([{
         'customer_age': customer_age,
         'customer_tenure_months': customer_tenure_months,
-        'customer_region_enc': customer_region_enc,
         'order_value': order_value, 'items_quantity': items_quantity,
         'discount_value': discount_value, 'payment_installments': payment_installments,
         'delivery_time_days': delivery_time_days, 'delivery_delay_days': delivery_delay_days,
@@ -203,21 +207,24 @@ with tab1:
     probabilidades = pipeline.predict_proba(X_pred)[0]
 
     # ── Preview das Flags Operacionais
+    # Lidas direto de X_pred (saída de criar_features) — nunca recalculadas à
+    # mão aqui, senão o número exibido diverge do que o modelo de fato viu.
+    feat = X_pred.iloc[0]
     col_flag1, col_flag2, col_flag3, col_flag4 = st.columns(4)
     with col_flag1:
-        ratio_atraso = delivery_delay_days / (delivery_time_days + 1)
+        ratio_atraso = feat['ratio_atraso_entrega']
         cor = "pill-red" if ratio_atraso > 0.3 else "pill-green"
         st.markdown(f'<span class="kpi-pill {cor}">⏱ Ratio Atraso: {ratio_atraso:.2f}</span>', unsafe_allow_html=True)
     with col_flag2:
-        score_log = -delivery_delay_days*2 - delivery_attempts + (5 if delivery_delay_days==0 else 0)
+        score_log = feat['score_logistica']
         cor = "pill-red" if score_log < 0 else "pill-green"
-        st.markdown(f'<span class="kpi-pill {cor}">🚚 Score Logística: {score_log}</span>', unsafe_allow_html=True)
+        st.markdown(f'<span class="kpi-pill {cor}">🚚 Score Logística: {score_log:.0f}</span>', unsafe_allow_html=True)
     with col_flag3:
-        intensidade = customer_service_contacts * (resolution_time_days+1) * (complaints_count+1)
+        intensidade = feat['intensidade_problema']
         cor = "pill-red" if intensidade > 5 else "pill-green"
-        st.markdown(f'<span class="kpi-pill {cor}">😤 Intensidade Problema: {intensidade}</span>', unsafe_allow_html=True)
+        st.markdown(f'<span class="kpi-pill {cor}">😤 Intensidade Problema: {intensidade:.0f}</span>', unsafe_allow_html=True)
     with col_flag4:
-        pct_desc = discount_value / (order_value + 1) * 100
+        pct_desc = feat['pct_desconto']
         st.markdown(f'<span class="kpi-pill pill-blue">🏷️ Desconto Relativo: {pct_desc:.1f}%</span>', unsafe_allow_html=True)
 
     st.markdown("---")
@@ -298,10 +305,14 @@ with tab2:
     st.markdown("---")
     m1, m2, m3, m4 = st.columns(4)
     m1.metric("Detratores/mês", f"{roi_data['detrat_mes']:,}")
-    m2.metric("Detectados pelo Modelo", f"{roi_data['detectados']:,}")
-    m3.metric("Clientes Retidos", f"{roi_data['retidos']:,}")
+    m2.metric("Detectados (verdadeiros +)", f"{roi_data['detectados']:,}")
+    m3.metric("Ações desnecessárias (FP)", f"{roi_data['falsos_pos']:,}")
     m4.metric("💰 ROI Estimado", f"{roi_data['roi']:.0f}%",
               delta=f"R$ {roi_data['lucro']:,.0f} lucro/mês")
+    st.caption(f"Total de ações disparadas: {roi_data['acoes_total']:,} "
+               f"({roi_data['detectados']:,} certeiras + {roi_data['falsos_pos']:,} FP) · "
+               f"Clientes retidos: {roi_data['retidos']:,} · "
+               f"custo do FP incluído no ROI (precisão ~79% no threshold 0,19)")
 
     # Gráfico de funil + barras de ROI
     fig_roi, axes_roi = plt.subplots(1, 2, figsize=(12, 4))

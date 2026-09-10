@@ -44,22 +44,26 @@ def main():
     df_clean = df.drop(columns=['repeat_purchase_30d', 'csat_internal_score'])
     df_features = criar_features(df_clean)
 
-    X = df_features[FEATURES_MODELO]
+    X = df_features[FEATURES_MODELO].to_numpy()
     y_detrator = (df_features['nps_score'] <= 6).astype(int)
-
-    X_scaled = StandardScaler().fit_transform(X)
 
     print(f"\nGerando probabilidades OOF (out-of-fold) via CV 5-fold...")
     cv = StratifiedKFold(n_splits=5, shuffle=True, random_state=42)
     proba_oof = np.zeros(len(y_detrator))
 
-    for train_idx, val_idx in cv.split(X_scaled, y_detrator):
+    for train_idx, val_idx in cv.split(X, y_detrator):
+        # Scaler fitado só no train do fold — a probabilidade OOF não pode
+        # ver a distribuição da própria validação, nem via normalização.
+        scaler = StandardScaler()
+        X_train = scaler.fit_transform(X[train_idx])
+        X_val = scaler.transform(X[val_idx])
+
         model = RandomForestClassifier(
             n_estimators=100, max_depth=7, class_weight='balanced',
             random_state=42, n_jobs=-1
         )
-        model.fit(X_scaled[train_idx], y_detrator.iloc[train_idx])
-        proba_oof[val_idx] = model.predict_proba(X_scaled[val_idx])[:, 1]
+        model.fit(X_train, y_detrator.iloc[train_idx])
+        proba_oof[val_idx] = model.predict_proba(X_val)[:, 1]
 
     print(f"Custo por Falso Positivo (acao desnecessaria): R$ {CUSTO_CUPOM:.2f}")
     print(f"Custo por Falso Negativo (oportunidade perdida): R$ {CUSTO_OPORTUNIDADE_FN:.2f}")

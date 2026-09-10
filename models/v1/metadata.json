@@ -1,6 +1,9 @@
 {
     "version": "v1",
-    "date": "2026-04-29 12:17:51",
+    "date": "2026-09-10 09:38:07",
+    "target_definition": "Detrator nps_score <= 6 | Neutro 7-8 | Promotor >= 9",
+    "n_train": 2000,
+    "n_test": 500,
     "metrics": {
         "f1_macro": 0.5426601385434066,
         "recall_detrator": 0.8108108108108109

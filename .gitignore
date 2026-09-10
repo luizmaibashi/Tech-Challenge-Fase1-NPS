@@ -41,4 +41,6 @@ desktop.ini
 # Arquivos temporários gerados
 notebook_content.md
 modelo_nps_v1/
+dashboard_final.png
+reports/manual_error_analysis_sample.csv
 .env

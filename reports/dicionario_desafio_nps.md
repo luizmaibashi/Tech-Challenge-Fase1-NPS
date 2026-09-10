@@ -258,7 +258,7 @@
 - **Em Produção:** Não disponível no momento da predição
 - **Ação:** REMOVER dataset de treino (modelo será removido antes de salvar)
 - **Impacto de Manter (medido junto com csat_internal_score):** F1-Macro sobe
-  de 0.5605 para 0.7874 (+0,23 pontos, RF com mesmo CV 5-fold) — ver
+  de 0.5687 para 0.7886 (+0,22 pontos, RF com mesmo CV 5-fold) — ver
   `eda_desafio_nps.md` § 8
 
 #### `csat_internal_score` — ⛔ REMOVER
@@ -320,7 +320,7 @@ Não especificado; recomendado verificar nos metadados externos da origem dos da
 | customer_id | ✓ | ✗ | — | ✗ | ✗ |
 | order_id | ✓ | ✗ | — | ✗ | ✗ |
 | customer_age | ✓ | ◐ | Binning opcional | ◐ | ◐ |
-| customer_region | ✓ | ✓ | One-Hot | ✓ | ✓ |
+| customer_region | ✓ | ✗ | — | ✗ | ✗ |
 | customer_tenure_months | ✓ | ◐ | cliente_longa_data | ◐ | ◐ |
 | order_value | ✓ | ◐ | custo_por_item | ◐ | ◐ |
 | items_quantity | ✓ | ◐ | custo_por_item | ◐ | ◐ |
@@ -338,6 +338,55 @@ Não especificado; recomendado verificar nos metadados externos da origem dos da
 | **nps_score** | ✓ | ✓ TARGET | — | TARGET | ✓ OUTPUT |
 
 **Legenda:** ✓ = Usar | ◐ = Usar com cautela (baixa correlação) | ✗ = Não usar
+
+`customer_region` **não entra no modelo**: a EDA (§ 5) mostrou distribuição uniforme entre as 5 regiões e correlação irrelevante com NPS. O feature set de produção tem 20 colunas, sem região — e o benchmark usa exatamente esse conjunto.
+
+---
+
+## Colunas (pós-limpeza)
+
+Após remover `repeat_purchase_30d` e `csat_internal_score` (leakage) e os identificadores (`customer_id`, `order_id`, não são features), sobram 13 colunas originais que entram no modelo, mais o target.
+
+| Coluna | Tipo | Significado | Interpretação de negócio |
+|---|---|---|---|
+| `customer_age` | int (anos) | Idade do cliente | Fraca ligação com satisfação; mantida por completude, não por sinal |
+| `customer_tenure_months` | int (meses) | Tempo de relacionamento | Base para `cliente_longa_data`; clientes antigos toleram falha de forma diferente |
+| `customer_region` | categórica (5 UF-grupos) | Região do cliente | **Não usada no modelo** — problema é sistêmico na logística, não regional |
+| `order_value` | float (R$) | Valor do pedido | Entra em `custo_por_item`; percepção de custo-benefício |
+| `items_quantity` | int (1–6) | Itens no pedido | Divisor de `custo_por_item`; validado `> 0` em `utils.py` |
+| `discount_value` | float (R$) | Desconto aplicado | Entra em `pct_desconto` (desconto relativo, não absoluto) |
+| `freight_value` | float (R$) | Frete pago | Entra em `custo_por_item` e no custo logístico percebido |
+| `payment_installments` | int (1–11) | Parcelas | Sinal fraco; mantida por completude |
+| `delivery_time_days` | int (2–14) | Prazo **prometido** de entrega | Denominador de `ratio_atraso_entrega` |
+| `delivery_delay_days` | int (0–8) | Dias de **atraso** real | **Maior preditor** (corr. −0,597); base de `entrega_no_prazo` e `score_logistica` |
+| `delivery_attempts` | int (1–3) | Tentativas de entrega | Compõe `score_logistica`; >2 indica problema de endereço/disponibilidade |
+| `customer_service_contacts` | int (0–7) | Contatos no SAC | 2º maior preditor (corr. −0,351); compõe `intensidade_problema` |
+| `resolution_time_days` | int (0–11) | Dias até resolver o problema | Compõe `intensidade_problema` |
+| `complaints_count` | int (0–11) | Reclamações registradas | 3º maior preditor (corr. −0,497); compõe `intensidade_problema` |
+| `nps_score` | float (0–10) | **Target.** Nota NPS | Discretizado: Detrator ≤ 6 · Neutro 7–8 · Promotor ≥ 9 |
+
+## Conexão com objetivo de negócio
+
+Âncora: `reports/PROBLEM.md` (contrato de pesquisa) e `docs/wayfinder/tech_challenge_nps/0001-gate-crisp-dm-ausente.md`.
+
+- **Objetivo do dataset:** prever, no momento da expedição/entrega, se um pedido vai gerar um cliente **Detrator**, para disparar ação profilática (cupom, CS VIP) *antes* da pesquisa de NPS — que hoje só é coletada quando o dano já está feito.
+- **Hipótese que o dataset deve confirmar ou refutar:** a detratação é dirigida por **fricção operacional mensurável** (atraso logístico, volume de reclamações, intensidade de contato com o SAC), não por perfil demográfico ou valor do pedido.
+- **Colunas que respondem à hipótese (confirmado pela EDA):** `delivery_delay_days`, `complaints_count`, `customer_service_contacts`, `resolution_time_days` — as 4 únicas com correlação relevante com o target. Demográficas e financeiras ficaram em −0,04 a +0,04: a hipótese se **confirma**.
+- **O que fica de fora:** `csat_internal_score` e `repeat_purchase_30d` correlacionam forte (+0,56 / +0,57) mas são medidos *depois* da entrega — usá-los quebraria o modelo no go-live (ver § 8 da EDA).
+
+## Features criadas
+
+Geradas por `utils.py:criar_features()`, usadas identicamente por treino, API, Streamlit e monitor.
+
+| Feature | Fórmula | Interpretação de negócio |
+|---|---|---|
+| `ratio_atraso_entrega` | `delivery_delay_days / (delivery_time_days + 1)` | Atraso **relativo** ao prazo vendido: 3 dias em entrega expressa ≠ 3 dias em entrega padrão |
+| `custo_por_item` | `(order_value + freight_value) / items_quantity` | Custo total percebido por unidade — proxy de custo-benefício |
+| `intensidade_problema` | `customer_service_contacts × resolution_time_days × (complaints_count + 1)` | Cascata de sofrimento no suporte: multiplica volume, demora e reincidência |
+| `entrega_no_prazo` | `(delivery_delay_days == 0)` | Flag binária de SLA logístico cumprido |
+| `score_logistica` | `-delivery_delay_days×2 - delivery_attempts + entrega_no_prazo×5` | Score composto da experiência logística (quanto menor, pior) |
+| `cliente_longa_data` | `(customer_tenure_months > 60)` | Cliente fiel — tolerância a falha diferente |
+| `pct_desconto` | `discount_value / (order_value + 1) × 100` | Desconto **relativo** ao valor do pedido, não absoluto |
 
 ---
 

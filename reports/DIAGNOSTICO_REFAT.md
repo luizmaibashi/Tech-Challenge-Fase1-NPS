@@ -60,7 +60,7 @@ Tech-Challenge-Fase1-NPS-main/
 ```
 
 ---
-*Documento atualizado em 29/04/2026 por Antigravity (AI DS Specialist).*
+*Plano original: 29/04/2026. Nota histórica e correção de status: 2026-09-09.*
 
 ---
 

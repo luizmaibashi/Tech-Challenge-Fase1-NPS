@@ -33,20 +33,19 @@ def generate_error_analysis_sample():
     # 3. Predição
     df['target_predito'] = pipeline.predict(X)
     
-    # 4. Filtrar Erros Críticos (Falso Negativo de Detrator é o pior erro)
-    # Cliente era Detrator (0) mas previmos Neutro(1) ou Promotor(2)
+    # 4. Filtrar o erro crítico: cliente era Detrator (0) e o modelo previu
+    # Neutro (1) ou Promotor (2) — um Falso Negativo na tarefa de detecção,
+    # o pior erro (deixa um cliente insatisfeito sem ação de retenção).
     erros = df[df['target_real'] != df['target_predito']].copy()
-    
-    # Adicionar colunas descritivas para facilitar leitura visual
+
     map_classes = {0: "Detrator", 1: "Neutro", 2: "Promotor"}
     erros['Real_Class'] = erros['target_real'].map(map_classes)
     erros['Pred_Class'] = erros['target_predito'].map(map_classes)
-    
-    # Pegar uma amostra de ~100 erros focada em Detratores mascarados
-    falsos_positivos = erros[erros['target_real'] == 0]
-    
-    amostra_tamanho = min(100, len(falsos_positivos))
-    amostra_analise = falsos_positivos.sample(n=amostra_tamanho, random_state=42)
+
+    detratores_perdidos = erros[erros['target_real'] == 0]
+
+    amostra_tamanho = min(100, len(detratores_perdidos))
+    amostra_analise = detratores_perdidos.sample(n=amostra_tamanho, random_state=42)
     
     # Selecionar colunas chave para a análise manual
     colunas_foco = [

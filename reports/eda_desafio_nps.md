@@ -238,10 +238,10 @@ Dataset **fortemente desbalanceado**: 74% Detratores vs 8% Promotores (razão 9.
 - **Em produção:** Não disponível no momento da predição
 - **Ação:** REMOVER do modelo final
 
-**Impacto do Leakage no Benchmark (medido, não estimado):**
-Random Forest com leakage incluído: F1-Macro = 0.7874 ± 0.0234 (CV 5-fold).
-Random Forest sem leakage (benchmark real, Ticket 0009): F1-Macro = 0.5605 ± 0.0409.
-Diferença de ~0.23 pontos de F1 — o ganho do leakage é real e substancial, confirmando que remover as duas variáveis era a decisão correta.
+**Impacto do Leakage no Benchmark (medido, não estimado — CV 5-fold, 20 features, scaler dentro do fold):**
+Random Forest com leakage incluído: F1-Macro = 0.7886 ± 0.0248.
+Random Forest sem leakage (config de produção): F1-Macro = 0.5687 ± 0.0494.
+Diferença de ~0.22 pontos de F1 — o ganho do leakage é real e substancial, confirmando que remover as duas variáveis era a decisão correta.
 
 ---
 

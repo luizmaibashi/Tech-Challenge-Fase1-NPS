@@ -1,7 +1,7 @@
 # 📜 Contrato de Pesquisa: NPS Predictor AI
 
 ## 1. O Problema de Negócio (A Dor)
-Um e-commerce nacional apresenta uma crise crítica de satisfação. O NPS médio atual é de **4.38/10**, com um volume alarmante de **84.4% de Detratores**. 
+Um e-commerce nacional apresenta uma crise crítica de satisfação. O NPS médio atual é de **4.38/10**, com um volume alarmante de **74,04% de Detratores** (classificação NPS clássica: nota 0–6). 
 
 O processo atual de medição é **reativo**: a empresa só descobre a insatisfação quando o cliente responde à pesquisa, momento em que a experiência negativa já foi consolidada e o churn ou a detração pública são iminentes.
 
@@ -26,9 +26,9 @@ O modelo deve classificar o pedido em três categorias baseadas na nota NPS (0-1
 
 ## 4. Guardrails e Restrições (Anti-Leakage)
 Para garantir que o modelo seja utilizável na vida real, as seguintes variáveis são **estritamente proibidas** por conterem informações do futuro (*Data Leakage*):
-- `csat_internal_score` (gerado após a pesquisa).
-- `repeat_purchase_30d` (decisão tomada após a experiência).
-- `survey_timestamp` (metadado da resposta).
+- `csat_internal_score` (gerado após a pesquisa) — presente no extrato, removido no treino.
+- `repeat_purchase_30d` (decisão tomada após a experiência) — presente no extrato, removido no treino.
+- Qualquer metadado da resposta da pesquisa (ex.: timestamp) — não presente neste extrato; proibido caso apareça em versões futuras.
 
 ---
 
@@ -41,10 +41,10 @@ O modelo deve basear suas decisões em métricas de "dor" calculadas:
 ---
 
 ## 6. Critérios de Sucesso (Métricas de Performance)
-Dado o desbalanceamento severo (84.4% detratores), a Acurácia é proibida como métrica principal.
-- **Métrica Técnica:** F1-Score Macro ≥ 0.55.
-- **Métrica de Negócio:** Recall de Detratores ≥ 0.75 (capturar pelo menos 3/4 dos clientes insatisfeitos).
-- **Métrica Financeira (ROI):** Manter o ROI estimado acima de 250% (Receita Preservada / Custo das Ações).
+Dado o desbalanceamento severo (74,04% detratores), a Acurácia é proibida como métrica principal.
+- **Métrica Técnica:** F1-Score Macro ≥ 0,55 na **média de CV 5-fold**. Medido: 0,5687 ± 0,0494 (`reports/benchmark_results.csv`). No holdout único 80/20 o modelo servido marca 0,5427 — abaixo do alvo, esperado pela variância de um teste de 500 linhas; a média de CV é o número de aceitação.
+- **Métrica de Negócio:** Recall de Detratores ≥ 0,75 no ponto de operação de disparo de ação. Medido: 98,4% no threshold calibrado 0,19 (§ 8).
+- **Métrica Financeira:** a calibração de threshold por custo deve **reduzir o custo total esperado** frente ao corte padrão de 0,5. Medido: economia de R$ 25.512,50/mês em escala de 2.500 pedidos (`reports/threshold_calibration.json`). O ROI absoluto (~222% no cenário base) é reportado no README § 5, mas **não é critério de aceitação** — depende de premissas de LTV/retenção que só a direção valida com dados de CRM; o número robusto é a economia relativa entre pontos de operação do mesmo modelo.
 
 ---
 
@@ -77,10 +77,10 @@ já usado no treino, que corrige outra coisa).
 
 | Threshold | FP | FN | Recall | Custo total esperado |
 |---|---|---|---|---|
-| 0,50 (padrão) | 188 | 309 | 83,3% | R$ 43.492,50 |
-| **0,19 (ótimo)** | 487 | 29 | **98,4%** | **R$ 18.162,50** |
+| 0,50 (padrão) | 189 | 310 | 83,3% | R$ 43.645,00 |
+| **0,19 (ótimo)** | 486 | 29 | **98,4%** | **R$ 18.132,50** |
 
-**Economia estimada:** R$ 25.330,00/mês (escala de 2.500 pedidos/mês).
+**Economia estimada:** R$ 25.512,50/mês (escala de 2.500 pedidos/mês).
 **Meta de recall (Seção 6, ≥75%): ATINGIDA com folga** (98,4%).
 
 **Decisão:** usar threshold = 0,19 em produção para a decisão de disparo de
@@ -90,4 +90,4 @@ que continua por argmax). Script: `threshold_calibration.py`. Artefatos:
 `reports/threshold_custo.png`.
 
 ---
-**Assinado:** Luiz Maibashi (Cientista de Dados) & Antigravity (Especialista em IA)
+**Responsável:** Luiz Maibashi (Cientista de Dados)

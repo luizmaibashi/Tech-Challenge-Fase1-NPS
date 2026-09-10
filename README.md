@@ -48,9 +48,9 @@ Variáveis aparentemente poderosas (`csat_internal_score`, `repeat_purchase_30d`
 
 **Impacto medido empiricamente (CV 5-fold, não estimativa):**
 ```
-F1-Score SEM leakage (correto, modelo em produção): 0.5605
-F1-Score COM leakage (errado, apenas para demonstração): 0.7874
-Ganho ARTIFICIAL: +0.2269 pontos (+40% artificial, não existe em produção)
+F1-Score SEM leakage (correto, modelo em produção): 0.5687
+F1-Score COM leakage (errado, apenas para demonstração): 0.7886
+Ganho ARTIFICIAL: +0.22 pontos (não existe em produção)
 ```
 > Um modelo com leakage quebraria completamente no go-live. Identificar isso — e medir o tamanho exato da ilusão — é o que separa um cientista de dados de um "ajustador de parâmetros".
 
@@ -65,19 +65,21 @@ Com 74% de Detratores, um modelo que sempre prevê "Detrator" teria **74% de Acu
 
 ### 3. Benchmark Real: 3 Modelos, CV 5-Fold, Sem Achismo
 
-O modelo final (Random Forest) não foi escolhido "porque sim" — foi comparado cientificamente contra Gradient Boosting e Logistic Regression, com validação cruzada 5-fold estratificada:
+O modelo final (Random Forest) não foi escolhido "porque sim" — foi comparado contra Gradient Boosting e Logistic Regression, com validação cruzada 5-fold estratificada, **no mesmo conjunto de 20 features que está em produção** (sem região) e com o `StandardScaler` fitado dentro de cada fold:
 
 | Modelo | F1-Macro (CV 5-fold) |
 |---|---|
-| **Random Forest** | **0,5605 ± 0,0409** |
-| Gradient Boosting | 0,5527 ± 0,0320 |
-| Logistic Regression | 0,5430 ± 0,0438 |
+| **Random Forest** | **0,5687 ± 0,0494** |
+| Logistic Regression | 0,5491 ± 0,0464 |
+| Gradient Boosting | 0,5463 ± 0,0358 |
 
-Resultado versionado em `reports/benchmark_results.csv` e `reports/cv_scores.csv` — reproduzível a qualquer momento com `python benchmark_modelos.py`.
+A vantagem da RF é real mas modesta (fica dentro de um desvio-padrão da 2ª colocada) — ela vence, não domina. Resultado versionado em `reports/benchmark_results.csv` e `reports/cv_scores.csv`, reproduzível com `python benchmark_modelos.py`.
+
+O modelo servido (`models/v1/pipeline_completo.pkl`, treino/holdout único 80/20) marca **F1-Macro 0,5427 / Recall de Detrator 0,8108** no seu conjunto de teste de 500 pedidos — abaixo da média de CV porque um holdout único de 500 linhas é mais ruidoso que a média de 5 folds. Ambos os números estão em `models/v1/metadata.json`.
 
 ### 4. Feature Engineering com Valor Preditivo Real
 
-7 novas variáveis criadas a partir das 14 originais, com intuição de negócio clara:
+7 novas variáveis criadas a partir das colunas operacionais originais (o modelo de produção usa 13 originais + 7 de engenharia = 20 features), com intuição de negócio clara:
 
 | Feature Criada | Fórmula | Por Que Importa |
 |---|---|---|
@@ -123,7 +125,7 @@ Análise completa em `reports/eda_desafio_nps.md` (9 seções) e `reports/dicion
 
 ### Decisão do Modelo
 
-**Random Forest** (`n_estimators=100, max_depth=7, class_weight='balanced'`) venceu o benchmark de 3 candidatos por F1-Macro em CV 5-fold (§ 2.3). O objetivo do modelo não é acertar "a nota exata que o cliente daria" — é uma **ferramenta de triagem**: errar o mínimo possível na classificação de Detratores, mesmo sacrificando um pouco de acurácia global, porque deixar um cliente prestes a se tornar detrator sem amparo custa mais caro ao cofre da empresa do que contatar preventivamente um cliente neutro.
+**Random Forest** (`n_estimators=100, max_depth=7, class_weight='balanced'`) lidera o benchmark de 3 candidatos por F1-Macro em CV 5-fold (§ 2.3). O objetivo do modelo não é acertar "a nota exata que o cliente daria" — é uma **ferramenta de triagem**: errar o mínimo possível na classificação de Detratores, mesmo sacrificando um pouco de acurácia global, porque deixar um cliente prestes a se tornar detrator sem amparo custa mais caro ao cofre da empresa do que contatar preventivamente um cliente neutro.
 
 ### Threshold Calibrado por Custo Real (não o corte padrão de 0.5)
 
@@ -131,8 +133,8 @@ A decisão de **disparar ou não a ação profilática** (cupom, CS VIP) usa um 
 
 | Threshold | Falsos Positivos | Falsos Negativos | Recall Detrator | Custo Mensal Estimado |
 |---|---|---|---|---|
-| 0,50 (padrão) | 188 | 309 | 83,3% | R$ 43.492,50 |
-| **0,19 (calibrado por custo)** | 487 | 29 | **98,4%** | **R$ 18.162,50** |
+| 0,50 (padrão) | 189 | 310 | 83,3% | R$ 43.645,00 |
+| **0,19 (calibrado por custo)** | 486 | 29 | **98,4%** | **R$ 18.132,50** |
 
 **Por que o corte é tão mais baixo que 0,5:** deixar um Detrator sem ação custa ~R$ 122,50 (oportunidade de retenção perdida); agir sem necessidade custa R$ 30 (cupom). A razão de custo é 4,08× — vale muito mais errar por excesso de zelo do que por omissão. Metodologia completa (probabilidades out-of-fold via CV, sem vazamento entre calibração e treino) em `threshold_calibration.py` e `reports/PROBLEM.md` § 8.
 
@@ -167,13 +169,15 @@ Gerado por `shap_analysis.py` (`TreeExplainer`, rápido para modelos de árvore)
 |---|---|
 | Detratores reais no mês | 1.851 |
 | Detratores detectados (threshold 0,19) | 1.822 |
-| Falsos positivos (ação desnecessária) | 487 |
-| Custo total das ações | R$ 69.270,00 |
+| Falsos positivos (ação desnecessária) | 486 |
+| Custo total das ações (2.308 cupons) | R$ 69.240,00 |
 | Receita preservada (LTV) | R$ 223.195,00 |
-| **Lucro Líquido Mensal** | **R$ 153.925,00** |
+| **Lucro Líquido Mensal** | **R$ 153.955,00** |
 | **ROI Estimado** | **~222%** |
 
-**Comparação que realmente importa — threshold calibrado vs threshold ingênuo:** usar o corte padrão (0,5) em vez do calibrado por custo (0,19) custaria **R$ 25.330,00/mês a mais** — é essa a economia direta de ter feito a calibração corretamente, não uma estimativa, um número medido com CV.
+FP, FN e TP vêm direto de `reports/threshold_calibration.json` (ponto de operação em 0,19); custo = (TP + FP) × R$ 30; receita = TP × 35% × R$ 350.
+
+**Comparação que realmente importa — threshold calibrado vs threshold ingênuo:** usar o corte padrão (0,5) em vez do calibrado por custo (0,19) custaria **R$ 25.512,50/mês a mais** — é essa a economia direta de ter feito a calibração corretamente, não uma estimativa, um número medido com CV.
 
 > **Perspectiva Crítica de Negócios:** a simulação reconhece os limites do LTV de e-commerce — retenção promovida por cupom sofre variação por cohort e sazonalidade. O número relevante para decisão executiva não é o ROI absoluto (sensível às premissas de retenção/LTV, que a direção deve validar com dados reais de CRM), mas a comparação relativa entre estratégias de threshold, que é robusta a essas incertezas porque compara o mesmo modelo em dois pontos de operação.
 
@@ -183,21 +187,21 @@ Gerado por `shap_analysis.py` (`TreeExplainer`, rápido para modelos de árvore)
 
 O modelo foi deployado como um **Web App interativo** usando Streamlit, com 3 abas funcionais:
 
-### Aba 1: Predição de Pedido (Tempo Real)
-- Formulário lateral com todos os parâmetros operacionais
-- Painel de flags de risco (Ratio de Atraso, Score Logístico, Intensidade do Problema)
+### Aba 1: "Predição Interativa" (Tempo Real)
+- Formulário lateral com os parâmetros operacionais do pedido
+- Painel de flags de risco (Ratio de Atraso, Score Logístico, Intensidade do Problema) — lidas direto da saída de `criar_features()`, sem recálculo à mão
 - Resultado visual com probabilidades por classe (Detrator / Neutro / Promotor)
 - **Ações recomendadas automáticas** com base na predição (cupom, escalada para CS VIP, referral marketing)
 
-### Aba 2: Simulador de ROI (Interativo)
+### Aba 2: "Simulador Preditivo de LTV" (Interativo)
 - Sliders para ajustar premissas de negócio em tempo real
-- Funil de intervenção mensal animado
+- Funil de intervenção mensal, incluindo os Falsos Positivos (custo real do cupom desnecessário entra no ROI)
 - Heatmap de sensibilidade ROI (5 × 5 cenários de LTV × Retenção)
 
-### Aba 3: Sobre o Modelo
+### Aba 3: "Insights da Máquina"
 - Tabela das decisões técnicas e justificativas
 - Features de engenharia documentadas
-- Tabela comparativa de modelos com métricas
+- Feature importance (Gini) da Random Forest
 
 ### Capturas de Tela
 
@@ -324,7 +328,7 @@ O projeto original (abril/2026) tinha um roadmap de MLOps marcado como "concluí
 |---|---|---|
 | 0001 | Gate CRISP-DM (EDA/dicionário) nunca existia | `reports/eda_desafio_nps.md` + `reports/dicionario_desafio_nps.md` |
 | 0002 | API tinha heurística hardcoded que o Streamlit não tinha — mesmo input, respostas diferentes | Heurística removida; validada estatisticamente antes (errava 39% dos casos que cobria) |
-| 0003 | Threshold de decisão nunca calibrado por custo | `threshold_calibration.py` — threshold 0,19, economia R$ 25.330/mês |
+| 0003 | Threshold de decisão nunca calibrado por custo | `threshold_calibration.py` — threshold 0,19, economia R$ 25.512,50/mês |
 | 0004 | `monitor.py` decorativo (threshold arbitrário, sem teste estatístico) | KS-test real + correção de comparações múltiplas (Holm) |
 | 0005 | Zero testes de unidade | 26 testes (`tests/test_utils.py`), incluindo um bug real de divisão-por-zero corrigido |
 | 0006 | `requirements.txt` sem versões travadas (risco alto — serializa `.pkl`) | Todas as dependências pinadas com `==` |

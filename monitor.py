@@ -7,8 +7,8 @@ feature, sem teste estatistico real — o comentario original admitia
 
 Metodo: Kolmogorov-Smirnov two-sample test comparando a distribuicao de
 cada feature numerica no lote novo contra a amostra de referencia do
-treino (`models/v1/train_reference_sample.csv`, gerada por
-utils.py:criar_features() sobre o dataset de treino sem leakage).
+treino (`models/v1/train_reference_sample.csv` = o X_train exato em que o
+modelo foi treinado, escrito por train_pipeline.py apos o split).
 
 Como o teste roda em ~20 features simultaneamente informando a mesma
 decisao (retreinar ou nao), aplica correcao de comparacoes multiplas
