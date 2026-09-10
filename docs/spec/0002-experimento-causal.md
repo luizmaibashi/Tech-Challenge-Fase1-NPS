@@ -29,6 +29,17 @@ teste do incremento do modelo isolado (com score vs sem score), que é um segund
   Recalibração isotônica via `CalibratedClassifierCV` derruba o ECE para **0,013** (medido por
   CV externa, sem contaminação in-sample). O experimento usa o scorer recalibrado
   (`models/v1/risco_detrator.pkl`), não o `predict_proba` cru.
+
+  **Base:** o scorer é treinado sobre os artefatos da refatoração (a "v2" conceitual —
+  `utils.criar_features` corrigida, `RF_PARAMS` de `train_pipeline.py`, detrator = `nps_score <= 6`
+  canônico, 20 features sem região). Não usa o projeto de abril/2026.
+
+  **Débito (próxima sessão):** o scorer é um **RF binário paralelo**, não um envelope do modelo
+  servido (`pipeline_completo.pkl`, 3 classes). Isso cria um 3º RF de detrator na base (servido +
+  `threshold_calibration.py` + este). O certo: `models/v1/risco_detrator` deveria ser
+  `IsotonicRegression` sobre `pipeline_completo.predict_proba()[:,0]`, e ser a única fonte de
+  P(Detrator) para `api.py`, `threshold_calibration.py` e o experimento. Precisa de ADR (mexe na
+  forma como a API calcula a probabilidade e no teste de paridade JS do ADR-0001).
 - **A seletividade do modelo é modesta, e isso é um achado, não um bug.** Quando há falha de
   entrega, a maioria dos clientes vira detrator de fato (base 74 por cento, teto observado ~94
   por cento). O filtro `atraso > 0` sozinho já dá ~78 por cento de densidade; o modelo em cima
