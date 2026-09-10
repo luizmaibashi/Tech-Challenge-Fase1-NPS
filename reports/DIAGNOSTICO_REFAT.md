@@ -1,5 +1,17 @@
 # 🛠️ Diagnóstico e Plano de Refatoração: NPS Predictor AI
 
+> **Nota histórica (2026-09-09):** este documento registra o plano de
+> refatoração de abril/2026. A marcação "Fase 4 ✅ CONCLUÍDO" abaixo estava
+> **incorreta** quando escrita — `shap_analysis.py` nunca existia, `monitor.py`
+> era decorativo (threshold arbitrário, sem teste estatístico), zero testes de
+> unidade, modelo nunca comparado contra alternativas, threshold de decisão
+> nunca calibrado por custo. Uma refatoração completa em setembro/2026
+> (10 tickets, ver `docs/wayfinder/tech_challenge_nps/`) implementou de fato
+> o que faltava: benchmark real (`benchmark_modelos.py`), SHAP real
+> (`shap_analysis.py`), monitor real com KS-test (`monitor.py`), 26 testes de
+> unidade (`tests/`), threshold calibrado por custo (`threshold_calibration.py`).
+> Ver `README.md` e `reports/PROBLEM.md` § 8 para o estado atual real.
+
 **Objetivo:** Elevar o projeto NPS Predictor para o padrão "Market Standard" (Fase 2 de MLOps) antes da entrega do Tech Challenge, aplicando os conceitos recém-adquiridos de rigor técnico, arquitetura de software e explicabilidade.
 
 ---

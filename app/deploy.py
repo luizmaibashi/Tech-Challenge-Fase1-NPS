@@ -281,10 +281,10 @@ with tab2:
     with col_roi1:
         st.markdown("#### Premissas Operacionais")
         n_pedidos_mes  = st.number_input("Volume Mensal de Pedidos", 100, 100000, 2500, 100)
-        taxa_detrator  = st.slider("Taxa de Detratores (% da base)", 0.10, 0.95, 0.844, 0.01,
-                                   format="%.2f")
-        recall_modelo  = st.slider("Recall do Modelo (% dos detratores detectados)", 0.30, 0.99, 0.72, 0.01,
-                                   format="%.2f")
+        taxa_detrator  = st.slider("Taxa de Detratores (% da base)", 0.10, 0.95, 0.7404, 0.01,
+                                   format="%.2f", help="74,04% medido no dataset (classificação NPS clássica, 0-6)")
+        recall_modelo  = st.slider("Recall do Modelo (% dos detratores detectados)", 0.30, 0.99, 0.984, 0.01,
+                                   format="%.2f", help="98,4% com threshold calibrado por custo (0,19) — ver threshold_calibration.py")
     with col_roi2:
         st.markdown("#### Premissas Financeiras")
         custo_cupom   = st.number_input("Custo do Cupom/Ação (R$)", 5.0, 200.0, 30.0, 5.0)
@@ -389,9 +389,9 @@ with tab3:
         #### 🔬 Decisões Técnicas de Destaque
         | Decisão | Por quê |
         |---------|---------|
-        | **F1-Macro** como métrica-alvo | 84% de detratores: acurácia mente |
+        | **F1-Macro** como métrica-alvo | 74% de detratores: acurácia mente |
         | **class_weight='balanced'** | Penaliza erros nas classes menores |
-        | **Threshold otimizado** | Maximiza recall de detratores |
+        | **Threshold calibrado por custo** (0,19) | Recall de 98,4%, minimiza custo de FN vs FP |
         | **Pipeline sklearn** | Elimina *training-serving skew* |
         | **Data Leakage eliminado** | CSAT e recompra removidos do treino |
         """)
