@@ -162,11 +162,20 @@ def tabela_pavc():
                        "prob_margem_positiva": tot["prob_margem_positiva"],
                        "veredito": tot["veredito"]})
     df = pd.DataFrame(linhas)
+    cols = ["cenario", "delta_total", "delta_verdadeiro", "prob_margem_positiva", "veredito"]
+    cab = "| " + " | ".join(cols) + " |"
+    sep = "| " + " | ".join("---" for _ in cols) + " |"
+    corpo = [
+        "| " + " | ".join(
+            f"{v:.4f}" if isinstance(v, float) else str(v) for v in (r[c] for c in cols)
+        ) + " |"
+        for _, r in df.iterrows()
+    ]
     txt = ["# Cenarios PAVC - efeito no veredito\n",
            f"> {cfg.ROTULO_SINTETICO}\n",
            "Cenario base: efeito verdadeiro 'forte'. Cada linha mostra o que acontece "
            "quando uma mitigacao do PAVC NAO e aplicada.\n",
-           df.to_markdown(index=False, floatfmt=".4f"), ""]
+           cab, sep, *corpo, ""]
     (cfg.REPORTS_DIR / "pavc_cenarios.md").write_text("\n".join(txt), encoding="utf-8")
     return df
 

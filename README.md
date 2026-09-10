@@ -3,7 +3,7 @@
 [Abrir a demonstração estática](https://luizmaibashi.github.io/Tech-Challenge-Fase1-NPS/)
 [![Python](https://img.shields.io/badge/Python-3.8%2B-blue?style=flat-square&logo=python)](https://www.python.org/)
 [![scikit-learn](https://img.shields.io/badge/scikit--learn-1.8-orange?style=flat-square&logo=scikitlearn)](https://scikit-learn.org/)
-[![Tests](https://img.shields.io/badge/Testes-31%20passing-success?style=flat-square)](#)
+[![Tests](https://img.shields.io/badge/Testes-43%20passing-success?style=flat-square)](#)
 [![CRISP-DM](https://img.shields.io/badge/Methodology-CRISP--DM-success?style=flat-square)](#)
 [![FIAP](https://img.shields.io/badge/FIAP-Pós--Graduação%20AI%20Scientist-blueviolet?style=flat-square)](#)
 
@@ -24,6 +24,7 @@
 7. [Estrutura do Repositório](#7-estrutura-do-repositório)
 8. [Como Reproduzir](#8-como-reproduzir)
 9. [Refatoração Completa (Setembro/2026)](#9-refatoração-completa-setembro2026)
+10. [Experimentação Causal (continuidade)](#10-experimentação-causal-continuidade)
 
 ---
 
@@ -192,7 +193,7 @@ O Streamlit continua no repositório como referência local. A demo pública con
 - Formulário lateral com os parâmetros operacionais do pedido
 - Painel de flags de risco (Ratio de Atraso, Score Logístico, Intensidade do Problema) — lidas direto da saída de `criar_features()`, sem recálculo à mão
 - Resultado visual com probabilidades por classe (Detrator / Neutro / Promotor)
-- **Ações recomendadas automáticas** com base na predição (cupom, escalada para CS VIP, referral marketing)
+- **Ação recomendada** com base na predição. A demo mostra as quatro trilhas possíveis (cupom, escalada para CS VIP, referral, alerta logístico); a continuidade causal (§ 10) escolhe **uma** para provar valor primeiro
 
 ### Aba 2: "Simulador Preditivo de LTV" (Interativo)
 - Sliders para ajustar premissas de negócio em tempo real
@@ -245,7 +246,8 @@ tech_challenge_nps/
 │       ├── metadata.json               # Métricas e parâmetros
 │       └── train_reference_sample.csv  # Baseline para o monitor de drift
 ├── notebooks/
-│   └── Tech_challenge_fase1.ipynb      # Processo exploratório CRISP-DM (didático — ver § 9)
+│   ├── Tech_challenge_fase1.ipynb      # Processo exploratório CRISP-DM (didático — ver § 9)
+│   └── 02_experimento_causal.ipynb     # Protótipo do arco causal (§ 10, dados sintéticos)
 ├── data/
 │   └── desafio_nps_fase_1.csv
 ├── docs/
@@ -261,9 +263,17 @@ tech_challenge_nps/
 │   ├── benchmark_results.csv / cv_scores.csv
 │   ├── shap_summary.png / shap_waterfall_detrator.png
 │   └── threshold_calibration.json / threshold_grid.csv / threshold_custo.png
+├── experimento_causal/                 # § 10 — arco de inferência causal (tickets 0011–0016)
+│   ├── config.py                       # parâmetros do desenho (espelha docs/spec/0002)
+│   ├── calibracao_modelo.py            # pré-requisito: reliability + scorer recalibrado
+│   ├── dgp.py                          # gerador sintético (desfechos potenciais Y0/Y1)
+│   ├── randomizacao.py / analise.py    # sorteio estratificado, estimador, IC conjunto
+│   ├── dimensionamento.py              # n, duração, critério pré-registrado
+│   └── reports.py                      # figuras + resultados.json
 ├── tests/
-│   ├── test_utils.py                   # 26 testes de unidade
-│   └── test_exportar_modelo_web.py     # Paridade sklearn ↔ artefato web ↔ JavaScript
+│   ├── test_utils.py                   # feature engineering
+│   ├── test_exportar_modelo_web.py     # paridade sklearn ↔ artefato web ↔ JavaScript
+│   └── test_experimento_causal.py      # DGP, sorteio, não-viés do estimador, regra de decisão
 ├── scripts/
 │   └── exportar_modelo_web.py          # Exporta o pipeline para o artefato estático
 │
@@ -346,6 +356,20 @@ O projeto original (abril/2026) tinha um roadmap de MLOps marcado como "concluí
 | 0010 | Notebook original: fonte de verdade ou material morto? | Mantido como documento didático/exploratório; inconsistência interna corrigida (escolhia um modelo na comparação e usava outro na produção) |
 
 **Também corrigido durante a auditoria:** o relatório de EDA original tinha estatísticas erradas em 9 variáveis — causa raiz foi o `df.describe()` truncando a exibição de um dataset com muitas colunas no terminal, preenchendo números de colunas não visualizadas. Recalculado e conferido célula a célula contra o dataset real.
+
+---
+
+## 10. Experimentação Causal (continuidade)
+
+O modelo da Fase 1 responde *"quem vai virar detrator?"*. Ele **não prova** que cupom, atendimento prioritário ou correção logística mudam o desfecho — e o ROI de ~222% da § 5 depende de premissas de retenção e LTV que ninguém mediu.
+
+A continuidade trata isso como problema de inferência **causal**: o modelo vira o critério de elegibilidade e a evidência de valor vem de um experimento controlado A/B. Como este é um projeto de portfólio (sem e-commerce, CRM ou cliente real), o entregável é o **desenho** mais um **protótipo de método com dados sintéticos**.
+
+- Decisão e desenho: [`docs/adr/0002-arco-de-experimentacao-causal.md`](docs/adr/0002-arco-de-experimentacao-causal.md) e [`docs/spec/0002-experimento-causal.md`](docs/spec/0002-experimento-causal.md)
+- Protótipo: [`notebooks/02_experimento_causal.ipynb`](notebooks/02_experimento_causal.ipynb) e o pacote `experimento_causal/`
+- Achado do pré-requisito de calibração: o modelo v1 subestima risco em toda a faixa (ECE 0,10 → 0,01 com recalibração isotônica); a seletividade dele é modesta porque, com falha de entrega, a maioria dos clientes vira detrator de fato
+
+> **Escopo negativo:** o protótipo **não afirma** que o cupom funciona nem cita ROI medido. O efeito é escolhido no gerador; o que se demonstra é a competência de método — desenhar o A/B, recuperar o efeito com o IC certo, propagar a incerteza do valor do cliente na decisão e dimensionar contra um teto de calendário. Toda saída leva o rótulo "dados sintéticos, demonstração de método".
 
 ---
 
