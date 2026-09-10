@@ -79,6 +79,16 @@ negativo acima e a rotulagem em toda tela.
 - **Risco de regressão:** o texto do app e do README ainda descreve quatro ações; precisa
   alinhar para uma quando a política do ticket 0016 sair.
 
+## Auditoria PAVC (2026-09-10)
+
+Rodada sobre este ADR mais o spec. Veredito: GO condicional. Três falhas do Advogado do
+Diabo (experimento testa ação e modelo entrelaçados; poder insuficiente no volume real com
+risco de nunca convergir; regra de decisão com IC falsamente estreito por ignorar a incerteza
+do valor do cliente) e cinco cenários de borda (estrato ralo, cliente com muitas falhas fixo
+no controle, retreino do modelo no meio, contaminação do controle por canal paralelo, janela
+temporal assimétrica entre braços). Todas as mitigações foram absorvidas em
+`docs/spec/0002-experimento-causal.md` secoes 0 a 3 antes da build do ticket 0015.
+
 ## Links relacionados
 
 - `docs/spec/0002-experimento-causal.md` (desenho consolidado)

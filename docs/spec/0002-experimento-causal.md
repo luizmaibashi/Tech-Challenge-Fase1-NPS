@@ -20,6 +20,14 @@ Fica fora: execução com dados reais, integração com CRM ou gateway de cupom,
 no GitHub Pages, teste das outras três ações do app (CS VIP, referral, alerta logístico),
 teste do incremento do modelo isolado (com score vs sem score), que é um segundo A/B.
 
+## 0. Pré-requisitos (antes de fixar os cortes de estrato)
+
+- **Reliability plot do modelo v1** (PAVC falha 1 e blind spot 2). As probabilidades do RF com
+  `class_weight='balanced'` nunca foram checadas quanto a calibração. Se `P(Detrator) = 0,35`
+  não corresponde a 35 por cento de chance real, os baldes de estrato da secao 2 não medem o
+  que dizem medir. Gerar o gráfico (curva de confiabilidade mais Brier score) e, se houver
+  descalibração, aplicar calibração (isotônica ou Platt) antes de definir os cortes.
+
 ## 1. Contrato de eventos (ticket 0012)
 
 Unidade do registro: cliente. Um registro por cliente por entrada no experimento.
@@ -58,15 +66,34 @@ Base legal: execução de contrato mais legítimo interesse. Retenção do regis
 - **Unidade de randomização:** cliente. Fixado no braço no primeiro evento elegível; permanece
   até o fim do experimento mesmo com novos pedidos atrasados.
 - **Estratos:** faixa de `P(Detrator)` em três baldes (0,35 a 0,55; 0,55 a 0,75; acima de 0,75)
-  cruzada com dias de atraso (1 a 3; 4 ou mais). Seis estratos; sorteio dentro de cada.
+  cruzada com dias de atraso (1 a 3; 4 ou mais). Seis estratos; sorteio dentro de cada, na
+  proporção aproximada de 75 por cento tratamento e 25 por cento controle.
 - **Objetivo dos estratos:** balanço por construção, ganho de precisão e leitura de efeito
   heterogêneo, que alimenta a política de escala do ticket 0016.
+- **Colapso de estrato (PAVC edge case 1):** antes de abrir o sorteio, células com contagem
+  esperada abaixo de um piso (ex. 30 clientes por braço) são fundidas segundo uma ordem de
+  merge definida a priori (primeiro colapsa dias de atraso, depois faixa de `P`). A regra é
+  fixada no pré-registro, nunca decidida com os dados na mão.
+- **Modelo congelado (PAVC edge case 3):** a versão do modelo que produz `P(Detrator)` fica
+  travada pela duração inteira do experimento. Um retreino no meio mudaria o score dos mesmos
+  inputs e tornaria os cortes de estrato inconsistentes entre coortes. Gravar a versão (secao
+  1) não basta; ela não pode mudar.
 - **Grupo de controle:** 20 a 30 por cento dos elegíveis, sem nenhuma ação. Defensável porque
   o status quo já é não agir; o controle recebe a ação no rollout pós-experimento.
 - **Guardrails:** taxa de detrator entre respondentes e volume de reclamações e contatos de
-  SAC não podem piorar no braço tratado. Parada antecipada se um guardrail acusar dano claro.
-- **Quebras de protocolo:** cliente que recebe cupom por outro canal, ou que liga
-  espontaneamente e é atendido, é registrado como quebra e analisado por intention-to-treat.
+  SAC não podem piorar no braço tratado. Parada antecipada se um guardrail agregado acusar
+  dano claro. **Gatilho por-cliente (PAVC edge case 2):** cliente do controle que acumula
+  novas falhas de entrega acima de um limite durante o experimento é retirado do controle e
+  atendido; a saída é registrada e a análise o trata por intention-to-treat.
+- **Quebras de protocolo e contaminação (PAVC edge case 4):** cliente que recebe cupom por
+  outro canal, ou que liga espontaneamente e é atendido, é registrado como quebra. A **taxa de
+  contaminação do controle** é monitorada como guardrail; acima de 5 a 10 por cento, a análise
+  por intention-to-treat subestima o efeito (viés para nulo, que puxa para o Erro A), e passa a
+  exigir estimador de efeito no cumpridor (CACE ou variável instrumental) além do ITT.
+- **Âncora temporal (PAVC edge case 5):** `t0` e o início da janela de 90 dias são ancorados
+  na **data da entrega com atraso**, evento que existe identicamente nos dois braços, nunca na
+  data da ação (o cupom tem atraso de envio que o controle não tem). Resposta de pesquisa que
+  chega antes da ação entregue continua sendo pré-tratamento e não é desfecho.
 
 ## 3. Tamanho e critério (ticket 0014)
 
@@ -85,9 +112,20 @@ Decisões marcadas **[revalidar]** dependem de números que ainda não existem.
 - **Desenho de análise:** `n` fixo com um piloto interno de recalibração após as primeiras
   semanas (reestima `p0` e ajusta `n`). Se houver análise sequencial, gasto de alfa formal
   (O'Brien-Fleming), nunca "olhar e parar quando der significativo".
+- **Teto de duração (PAVC falha 2):** o pré-registro fixa uma duração máxima (ex. 6 meses).
+  Se ao fim dela o IC da margem incremental ainda cruza o break-even, o veredito é "efeito, se
+  existe, é pequeno demais para pagar no volume atual" e a ação não escala. A análise reporta
+  os resultados por coorte de mês de entrada para flagrar drift de composição ao longo do teste.
+- **IC conjunto (PAVC falha 3):** a regra de decisão propaga as duas incertezas, a do efeito
+  `Δ` (do experimento) e a de `valor_cliente_retido` (faixa R$ 105 a R$ 350), por Monte Carlo
+  com `valor ~ Uniforme(105, 350)` ou reportando a decisão como superfície ("escala se
+  `valor_cliente_retido` acima de X, dado o `Δ` medido"). Plantar o valor no ponto médio produz
+  um IC falsamente estreito e recria a decisão sobre premissa não medida que o ADR-0002 combate.
 - **Regra de decisão pré-registrada:** escalar apenas se o limite inferior do IC 95 por cento
-  da margem incremental por tratado ficar acima de zero. Resultado entre zero e o break-even
-  não escala. Resultado nulo ou negativo: desligar e realocar orçamento.
+  **conjunto** da margem incremental por tratado ficar acima de zero. Resultado entre zero e o
+  break-even não escala. Resultado nulo ou negativo: antes de desligar, uma auditoria de
+  calibração e de seleção do modelo (o nulo pode vir do modelo ter selecionado o segmento
+  errado, não da ação; ver PAVC falha 1); só então desligar e realocar orçamento.
 
 ## 4. Política de escala (ticket 0016)
 
@@ -110,6 +148,10 @@ Depois do veredito, a ação vira regra explícita, não decisão manual:
   verdadeiro conhecido e configurável por estrato.
 - A análise recupera o efeito plantado dentro do IC e aplica a regra da secao 3.
 - A análise de sensibilidade mostra como `n` e a decisão mudam ao longo da faixa de `p0`.
+- O gerador sintético cobre os cenários do PAVC: estrato ralo (colapso), contaminação do
+  controle acima de 10 por cento (viés do ITT para nulo), e janela ancorada na entrega e não
+  na ação. A análise demonstra a diferença de veredito com e sem cada mitigação.
+- O IC da decisão é conjunto (efeito e `valor_cliente_retido`), não só do efeito.
 - Toda saída (página, notebook ou figura) leva o rótulo "dados sintéticos, demonstração de
   método" e nenhuma afirma que o cupom funciona.
 
