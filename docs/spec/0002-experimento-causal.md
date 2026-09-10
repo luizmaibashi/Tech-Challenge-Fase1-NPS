@@ -142,6 +142,35 @@ Depois do veredito, a ação vira regra explícita, não decisão manual:
 - **Entrada de nova ação:** o próximo experimento usa a ação vencedora como controle, não o
   "não fazer nada".
 
+## 5. Organização no repositório (ticket 0015)
+
+Decidido em 2026-09-10. O arco causal é código interdependente com config compartilhada, então
+vira pacote próprio em vez de scripts soltos na raiz.
+
+```
+experimento_causal/
+  __init__.py
+  config.py            espelha as secoes 1 a 4 deste spec (estratos, cortes, faixa de p0,
+                       MDE, alfa e poder, faixa de valor_cliente_retido)
+  calibracao_modelo.py reliability plot do modelo v1 (secao 0)
+  dgp.py               gerador sintético com Y(0)/Y(1) por estrato e os cenários PAVC
+  randomizacao.py      sorteio estratificado, colapso de célula, fixação por cliente
+  analise.py           estimador de Δ com IC, IC conjunto Monte Carlo, regra de decisão
+  dimensionamento.py   n, poder, duração, sensibilidade em p0
+
+notebooks/02_experimento_causal.ipynb   narrativa didática, chama o pacote
+reports/experimento_causal/             figuras, pavc_cenarios.md, resultados.json
+tests/test_experimento_causal.py        seed determinística, recuperação do efeito, limites
+```
+
+Dado sintético em bulk fica no `.gitignore` (regenerável por seed). Só as figuras e o
+`resultados.json` citados pelo notebook e pelo README entram no git.
+
+Fluxo git: branch `feat/experimento-causal`, PR para `main` (trilha de revisão de diff, alinha
+com a spec-governance). A seção didática em `docs/` é passo 2 do ticket 0015, depois que o
+notebook e os reports validarem o método. O README ganha uma secao 10 curta apontando este
+arco, e alinha o texto das quatro ações do app para a única do ticket 0011.
+
 ## Critérios de aceite
 
 - O protótipo do ticket 0015 implementa as secoes 1 a 4 sobre um gerador sintético com efeito
