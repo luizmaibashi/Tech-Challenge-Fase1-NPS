@@ -54,4 +54,40 @@ Dado o desbalanceamento severo (84.4% detratores), a Acurácia é proibida como 
 - **Monitoramento:** Scripts de Data Drift semanais para detectar mudanças no perfil logístico do país.
 
 ---
+
+## 8. Threshold de Decisão Calibrado por Custo (Ticket 0003, 2026-09-09)
+
+Diferente da classificação multiclasse (Detrator/Neutro/Promotor, decidida
+por argmax de probabilidade), a decisão de **acionar ou não a ação
+profilática** (cupom, CS VIP) usa um threshold customizado sobre
+P(Detrator), calibrado pelo custo real de cada tipo de erro — não pelo
+corte padrão de 0.5.
+
+**Matriz de custo** (premissas da Seção 5 — ROI):
+- Falso Positivo (agir sem necessidade): custo do cupom = R$ 30,00
+- Falso Negativo (deixar Detrator sem ação): oportunidade de retenção
+  perdida = taxa_retenção × LTV = 0,35 × R$ 350,00 = **R$ 122,50**
+- Razão de custo FN/FP = 4,08× — errar por omissão é ~4x mais caro que
+  errar por excesso de zelo
+
+**Metodologia:** probabilidades OOF (out-of-fold, via CV 5-fold) para não
+calibrar o threshold sobre dado que influenciou o próprio treino (gate ML
+da base — threshold não pode ser confundido com o `class_weight='balanced'`
+já usado no treino, que corrige outra coisa).
+
+| Threshold | FP | FN | Recall | Custo total esperado |
+|---|---|---|---|---|
+| 0,50 (padrão) | 188 | 309 | 83,3% | R$ 43.492,50 |
+| **0,19 (ótimo)** | 487 | 29 | **98,4%** | **R$ 18.162,50** |
+
+**Economia estimada:** R$ 25.330,00/mês (escala de 2.500 pedidos/mês).
+**Meta de recall (Seção 6, ≥75%): ATINGIDA com folga** (98,4%).
+
+**Decisão:** usar threshold = 0,19 em produção para a decisão de disparo de
+ação (não para a classificação multiclasse reportada em métricas/relatórios,
+que continua por argmax). Script: `threshold_calibration.py`. Artefatos:
+`reports/threshold_calibration.json`, `reports/threshold_grid.csv`,
+`reports/threshold_custo.png`.
+
+---
 **Assinado:** Luiz Maibashi (Cientista de Dados) & Antigravity (Especialista em IA)
