@@ -1,0 +1,130 @@
+{
+  "rotulo": "diagnostico sobre dataset real da Fase 1",
+  "n": 2500,
+  "taxa_detrator_base": 0.7404,
+  "brier": 0.136,
+  "ece": 0.098,
+  "mce": 0.2011,
+  "corte_elegibilidade": 0.35,
+  "clientes_no_corte": 2019,
+  "densidade_detrator_no_corte": 0.8484,
+  "isotonica_ece_antes": 0.0927,
+  "isotonica_ece_depois": 0.0195,
+  "veredito": {
+    "calibrado_o_suficiente": false,
+    "recalibracao_isotonica_ajuda": true,
+    "acao": "recalibrar (isotonica) antes de fixar os cortes de estrato"
+  },
+  "bins": [
+    {
+      "bin": 0,
+      "faixa": [
+        0.0,
+        0.1
+      ],
+      "n": 42,
+      "confianca": 0.0803,
+      "acerto": 0.1905,
+      "gap": 0.1102
+    },
+    {
+      "bin": 1,
+      "faixa": [
+        0.1,
+        0.2
+      ],
+      "n": 174,
+      "confianca": 0.1517,
+      "acerto": 0.1609,
+      "gap": 0.0092
+    },
+    {
+      "bin": 2,
+      "faixa": [
+        0.2,
+        0.30000000000000004
+      ],
+      "n": 187,
+      "confianca": 0.2508,
+      "acerto": 0.369,
+      "gap": 0.1182
+    },
+    {
+      "bin": 3,
+      "faixa": [
+        0.30000000000000004,
+        0.4
+      ],
+      "n": 163,
+      "confianca": 0.3514,
+      "acerto": 0.4417,
+      "gap": 0.0903
+    },
+    {
+      "bin": 4,
+      "faixa": [
+        0.4,
+        0.5
+      ],
+      "n": 204,
+      "confianca": 0.4508,
+      "acerto": 0.652,
+      "gap": 0.2011
+    },
+    {
+      "bin": 5,
+      "faixa": [
+        0.5,
+        0.6000000000000001
+      ],
+      "n": 222,
+      "confianca": 0.5497,
+      "acerto": 0.6847,
+      "gap": 0.135
+    },
+    {
+      "bin": 6,
+      "faixa": [
+        0.6000000000000001,
+        0.7000000000000001
+      ],
+      "n": 249,
+      "confianca": 0.6497,
+      "acerto": 0.7912,
+      "gap": 0.1415
+    },
+    {
+      "bin": 7,
+      "faixa": [
+        0.7000000000000001,
+        0.8
+      ],
+      "n": 286,
+      "confianca": 0.7538,
+      "acerto": 0.8916,
+      "gap": 0.1378
+    },
+    {
+      "bin": 8,
+      "faixa": [
+        0.8,
+        0.9
+      ],
+      "n": 422,
+      "confianca": 0.8529,
+      "acerto": 0.9289,
+      "gap": 0.076
+    },
+    {
+      "bin": 9,
+      "faixa": [
+        0.9,
+        1.0
+      ],
+      "n": 551,
+      "confianca": 0.945,
+      "acerto": 0.9891,
+      "gap": 0.0441
+    }
+  ]
+}

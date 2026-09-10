@@ -44,3 +44,7 @@ modelo_nps_v1/
 dashboard_final.png
 reports/manual_error_analysis_sample.csv
 .env
+
+# Experimento causal - dados sinteticos regeneraveis por seed (spec 0002 secao 5)
+experimento_causal/_sintetico/
+reports/experimento_causal/*.parquet
