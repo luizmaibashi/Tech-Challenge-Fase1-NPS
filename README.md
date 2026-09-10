@@ -1,6 +1,6 @@
 # NPS Predictor AI: Tech Challenge Fase 1
 
-![NPS Predictor Demo](assets/nps_demo.webp)
+[Abrir a demonstração estática](https://luizmaibashi.github.io/Tech-Challenge-Fase1-NPS/)
 [![Python](https://img.shields.io/badge/Python-3.8%2B-blue?style=flat-square&logo=python)](https://www.python.org/)
 [![scikit-learn](https://img.shields.io/badge/scikit--learn-1.8-orange?style=flat-square&logo=scikitlearn)](https://scikit-learn.org/)
 [![Tests](https://img.shields.io/badge/Testes-31%20passing-success?style=flat-square)](#)
@@ -204,18 +204,16 @@ O Streamlit continua no repositório como referência local. A demo pública con
 - Features de engenharia documentadas
 - Feature importance (Gini) da Random Forest
 
-### Capturas de Tela
+### Demo atual
 
-| Predição Interativa | Simulador de ROI |
-|---|---|
-| ![Predição](assets/Deploy1.jpeg) | ![Simulador](assets/Deploy2.jpeg) |
+A versão pública é a página estática no GitHub Pages. Ela executa a predição no
+navegador, calcula o ROI e mostra as importâncias da Random Forest sem enviar dados
+do visitante a um servidor.
 
-| Análise de Sensibilidade (16 cenários) | Insights da Máquina |
-|---|---|
-| ![Sensibilidade](assets/Deploy3.jpeg) | ![Insights](assets/Deploy4.jpeg) |
+[Abrir a demonstração publicada](https://luizmaibashi.github.io/Tech-Challenge-Fase1-NPS/)
 
-**Feature Importance (Gini) — complementada por SHAP na § 4:**
-![Feature Importance](assets/Deploy5.jpeg)
+As capturas em `assets/Deploy*.jpeg` e `assets/nps_demo.webp` foram preservadas como
+registro da versão Streamlit original e não representam a interface pública atual.
 
 ### Publicar e reproduzir
 
