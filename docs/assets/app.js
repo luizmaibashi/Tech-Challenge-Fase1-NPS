@@ -90,4 +90,16 @@
     document.querySelectorAll('[role="tab"]').forEach((item) => { const ativo = item === aba; item.setAttribute("aria-selected", ativo); item.tabIndex = ativo ? 0 : -1; document.querySelector(`#${item.getAttribute("aria-controls")}`).hidden = !ativo; });
     if (aba.id === "tab-modelo") mostrarImportancias();
   }));
+
+  const lightbox = document.querySelector("#lightbox");
+  const lightboxImg = document.querySelector("#lightbox-img");
+  function abrirLightbox(img) {
+    lightboxImg.src = img.src;
+    lightboxImg.alt = img.alt;
+    lightbox.hidden = false;
+  }
+  function fecharLightbox() { lightbox.hidden = true; lightboxImg.src = ""; }
+  document.querySelectorAll(".causal-block img").forEach((img) => img.addEventListener("click", () => abrirLightbox(img)));
+  lightbox.addEventListener("click", fecharLightbox);
+  document.addEventListener("keydown", (evento) => { if (evento.key === "Escape" && !lightbox.hidden) fecharLightbox(); });
 })();
