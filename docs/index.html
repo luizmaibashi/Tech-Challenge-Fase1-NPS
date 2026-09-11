@@ -10,12 +10,14 @@
 <body>
   <a class="skip-link" href="#conteudo">Ir para o conteúdo</a>
   <header class="hero">
-    <p class="eyebrow">Tech Challenge Fase 1 · FIAP</p>
-    <h1>NPS Predictor</h1>
-    <p class="lede">Uma simulação de intervenção antes que a experiência vire detratação.</p>
-    <div class="decision-rail" aria-label="Política de retenção">
-      <span>Decisão operacional</span><strong>P(detrator) ≥ 19%</strong>
-      <small>O corte foi calibrado pelo custo de não agir, não por convenção.</small>
+    <div class="hero-inner">
+      <p class="eyebrow">Tech Challenge Fase 1 · FIAP</p>
+      <h1>NPS Predictor</h1>
+      <p class="lede">Uma simulação de intervenção antes que a experiência vire detratação.</p>
+      <div class="decision-rail" aria-label="Política de retenção">
+        <span>Decisão operacional</span><strong>P(detrator) ≥ 19%</strong>
+        <small>O corte foi calibrado pelo custo de não agir, não por convenção.</small>
+      </div>
     </div>
   </header>
 
@@ -24,6 +26,7 @@
       <button role="tab" id="tab-predicao" aria-selected="true" aria-controls="painel-predicao">Simular pedido</button>
       <button role="tab" id="tab-roi" aria-selected="false" aria-controls="painel-roi" tabindex="-1">Simular retorno</button>
       <button role="tab" id="tab-modelo" aria-selected="false" aria-controls="painel-modelo" tabindex="-1">Entender o modelo</button>
+      <button role="tab" id="tab-causal" aria-selected="false" aria-controls="painel-causal" tabindex="-1">Experimentação causal</button>
     </nav>
 
     <section id="painel-predicao" role="tabpanel" aria-labelledby="tab-predicao">
@@ -51,6 +54,7 @@
         <button class="primary" type="submit">Calcular risco e ação</button>
         <p id="status-modelo" class="status" aria-live="polite">O modelo será carregado apenas ao calcular.</p>
       </form>
+      <p class="interpretacao">O resultado traz a probabilidade de cada classe de NPS (Detrator, Neutro, Promotor) e se o corte de 19% recomenda ação de retenção. A classe mais provável pode não bater com a decisão de agir: o corte usa só a probabilidade de detrator, porque esse é o erro que custa mais caro para o negócio.</p>
       <section id="resultado" class="result hidden" aria-live="polite" aria-atomic="true"></section>
     </section>
 
@@ -64,6 +68,7 @@
         <label>Retenção pós-ação <input name="retencao" type="number" min="0.05" max="0.7" step="0.01" value="0.35"></label>
         <label>LTV por cliente (R$) <input name="ltv" type="number" min="50" max="2000" step="50" value="350"></label>
       </form>
+      <p class="interpretacao">As métricas comparam quantos detratores existem no volume mensal, quantos o modelo pega no recall configurado e quantas ações seriam disparadas sem necessidade real (falso positivo). A tabela de sensibilidade varia LTV e retenção pós-ação juntos: o ROI muda bastante dependendo dessas duas premissas, e nenhuma delas foi medida neste projeto.</p>
       <div id="resultado-roi" class="metrics" aria-live="polite"></div>
       <div id="sensibilidade" class="sensitivity" aria-label="Tabela de sensibilidade de ROI"></div>
     </section>
@@ -71,7 +76,57 @@
     <section id="painel-modelo" role="tabpanel" aria-labelledby="tab-modelo" hidden>
       <p class="section-label">Como ler esta demo</p><h2>Triagem, não sentença</h2>
       <div class="model-grid"><article><h3>O que prevê</h3><p>Risco de detratação a partir de sinais operacionais do pedido. Região foi excluída: o problema observado é sistêmico, não regional.</p></article><article><h3>Como decide</h3><p>Uma Random Forest com 100 árvores combina os 20 sinais. A ação usa a probabilidade de detrator, separada da classe mais provável.</p></article><article><h3>Limite da simulação</h3><p>LTV e retenção são premissas de negócio. O ganho mais confiável é comparar o corte de 19% com o corte padrão de 50%.</p></article></div>
+      <p class="interpretacao">O ranking abaixo mostra quais sinais o modelo mais usa para separar as classes de NPS. Importância alta não significa causa: é só o quanto aquele sinal ajuda a árvore a decidir, medido sobre o dado de treino.</p>
       <div id="importancias" class="importance" aria-label="Importância das variáveis"></div>
+    </section>
+
+    <section id="painel-causal" role="tabpanel" aria-labelledby="tab-causal" hidden>
+      <div class="intro-row">
+        <div><p class="section-label">Continuidade</p><h2>Prever o risco não prova que a ação funciona</h2></div>
+        <p>O ROI de 222% da aba anterior depende de premissas nunca medidas. Esta aba testa o método com rigor.</p>
+      </div>
+      <p class="synthetic-flag">Dados sintéticos, demonstração de método. Nenhum número aqui é resultado real do cupom.</p>
+
+      <div class="causal-block">
+        <img src="assets/causal/reliability_v1.png" alt="Curva de confiabilidade do modelo v1 antes e depois da recalibração isotônica" loading="lazy">
+        <div><h3>1. A probabilidade era confiável?</h3><p>Antes de usar P(Detrator) como corte de decisão, medimos se ela reflete risco real. O modelo original subestimava risco em toda a faixa (ECE 0,10). Recalibração isotônica corrigiu para ECE 0,013, <strong>achado real</strong> medido no dado da Fase 1.</p></div>
+      </div>
+
+      <div class="causal-block">
+        <img src="assets/causal/validacao_estimador.png" alt="Viés e cobertura do intervalo de confiança do estimador em 60 réplicas" loading="lazy">
+        <div><h3>2. A máquina de análise está correta?</h3><p>Antes de confiar em qualquer resultado, rodamos 60 réplicas com sementes diferentes: o estimador recupera o efeito plantado sem viés, e o intervalo de confiança cobre o valor verdadeiro ~95% das vezes.</p></div>
+      </div>
+
+      <div class="causal-block">
+        <img src="assets/causal/efeito_por_estrato.png" alt="Efeito estimado por estrato de risco, com intervalo de confiança" loading="lazy">
+        <div><h3>3. O efeito (sintético) por estrato</h3><p>Um A/B estratificado com sorteio 75/25 dentro de cada faixa de risco. O efeito plantado no gerador varia por estrato: maior no detrator recuperável, quase nulo no detrator quase certo.</p></div>
+      </div>
+
+      <div class="causal-block">
+        <img src="assets/causal/decisao_superficie.png" alt="Distribuição da margem incremental por cliente tratado, propagando incerteza do efeito e do valor do cliente" loading="lazy">
+        <div><h3>4. A decisão econômica</h3><p>Margem = efeito × valor do cliente retido − custo da ação. O valor do cliente não é medido (varia entre R$ 105 e R$ 350); por isso a maioria dos cenários cai em <em>zona morta</em>, não em "escalar": a incerteza real é propagada, não escondida.</p></div>
+      </div>
+
+      <div class="causal-block">
+        <img src="assets/causal/sensibilidade_p0.png" alt="Duração necessária do experimento em função do efeito mínimo detectável" loading="lazy">
+        <div><h3>5. Quanto tempo o experimento levaria</h3><p>Um efeito no break-even otimista é detectável em ~3 meses no estrato menor; um efeito intermediário estoura o teto de 6 meses. Dimensionado antes de rodar, não depois.</p></div>
+      </div>
+
+      <div class="pavc-table">
+        <h3>O que quebra sem as mitigações do PAVC</h3>
+        <table>
+          <caption>Cenário base: efeito verdadeiro "forte". Cada linha ignora uma mitigação</caption>
+          <thead><tr><th>Cenário</th><th>Δ medido</th><th>Δ verdadeiro</th><th>P(margem&gt;0)</th></tr></thead>
+          <tbody>
+            <tr><td>Com todas as mitigações (desenho do spec)</td><td>0,1401</td><td>0,1509</td><td>0,555</td></tr>
+            <tr><td>Contaminação do controle 30% ignorada</td><td>0,0950</td><td>0,1509</td><td>0,140</td></tr>
+            <tr><td>Janela ancorada na ação, não na entrega</td><td>0,1334</td><td>0,1509</td><td>0,510</td></tr>
+          </tbody>
+        </table>
+        <p class="section-note">Ignorar a contaminação do controle puxa o efeito medido para baixo em quase um terço, viés que mata um programa que funcionava (Erro A).</p>
+      </div>
+
+      <p class="section-note">Desenho completo: <a href="https://github.com/luizmaibashi/Tech-Challenge-Fase1-NPS/blob/main/docs/adr/0002-arco-de-experimentacao-causal.md">ADR-0002</a> e <a href="https://github.com/luizmaibashi/Tech-Challenge-Fase1-NPS/blob/main/docs/spec/0002-experimento-causal.md">spec</a>. Débito de engenharia resolvido: <a href="https://github.com/luizmaibashi/Tech-Challenge-Fase1-NPS/blob/main/docs/adr/0003-scorer-unico-para-o-experimento-causal.md">ADR-0003</a>. Protótipo completo: <a href="https://github.com/luizmaibashi/Tech-Challenge-Fase1-NPS/blob/main/notebooks/02_experimento_causal.ipynb">notebook</a>.</p>
     </section>
   </main>
   <footer>Modelo v1, Random Forest · inferência local no navegador · <a href="https://github.com/luizmaibashi/Tech-Challenge-Fase1-NPS">Código e metodologia</a></footer>

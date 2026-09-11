@@ -97,7 +97,10 @@ def fig_decisao_superficie(cen=None):
     valores = np.linspace(80, 380, 120)
 
     fig, ax = plt.subplots(figsize=(8.5, 4.8))
-    cores = ["#2166ac", "#4393c3", "#92c5de", "#333333"]
+    # rampa sequencial azul (estratos, ordenados por risco) + neutro pro total.
+    # validado via dataviz/scripts/validate_palette.js --ordinal: PASS em
+    # monotonicidade, gap adjacente e contraste do step mais claro (2,44:1).
+    cores = ["#184f95", "#2a78d6", "#6da7ec", "#52514e"]
     for (_, r), cor in zip(est.iterrows(), cores):
         alvo = "total" if r["estrato"] == -1 else f"estrato {int(r['estrato'])}"
         margem = r["delta"] * valores - cfg.CUSTO_ACAO
@@ -106,9 +109,9 @@ def fig_decisao_superficie(cen=None):
                 lw=2 if r["estrato"] == -1 else 1.4,
                 ls="--" if r["estrato"] == -1 else "-")
         ax.fill_between(valores, lo, margem, color=cor, alpha=0.12)
-    ax.axhline(0, color="#333", lw=1)
+    ax.axhline(0, color="#c3c2b7", lw=1)
     ax.axvspan(cfg.VALOR_CLIENTE_RETIDO_MIN, cfg.VALOR_CLIENTE_RETIDO_MAX,
-               color="#fdae61", alpha=0.15, label="faixa REVALIDAR do valor do cliente")
+               color="#fab219", alpha=0.15, label="faixa REVALIDAR do valor do cliente")
     ax.set_xlabel("valor de um cliente retido (R$)")
     ax.set_ylabel("margem incremental por cliente tratado (R$)")
     ax.set_title("A decisao de escalar depende do valor do cliente retido\n"
