@@ -17,6 +17,10 @@ MODELO_PATH = RAIZ / "models" / "v1" / "pipeline_completo.pkl"
 # scorer de risco do experimento: StandardScaler + RF binario + isotonica,
 # fitado em calibracao_modelo.treinar_scorer(). Espelha o modelo binario de
 # threshold_calibration.py, com a recalibracao que a secao 0 do spec exige.
+# Deliberadamente separado de MODELO_PATH (ADR-0003): calibrar o pipeline de
+# producao direto degradava o ECE de 0,0125 para 0,0478 por falta de dado de
+# calibracao disjunto. tests/test_scorer_sincronizado.py e o guarda contra os
+# dois divergirem sem ninguem notar — retreinar aqui apos mudar train_pipeline.py.
 SCORER_PATH = RAIZ / "models" / "v1" / "risco_detrator.pkl"
 REPORTS_DIR = RAIZ / "reports" / "experimento_causal"
 
