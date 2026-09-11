@@ -98,33 +98,33 @@ def _grafico(y, proba_cru, proba_calib, ece_cru, ece_calib, brier, destino):
     acerto_c, conf_c = calibration_curve(y, proba_cru, n_bins=10, strategy="quantile")
     acerto_r, conf_r = calibration_curve(y, proba_calib, n_bins=10, strategy="quantile")
 
-    ax1.plot([0, 1], [0, 1], "--", color="#888", label="calibracao perfeita")
+    ax1.plot([0, 1], [0, 1], "--", color="#888", label="acerto perfeito")
     ax1.plot(conf_c, acerto_c, "o-", color="#e74c3c",
-             label=f"modelo v1 cru  (ECE {ece_cru:.3f})")
+             label=f"modelo original (erra {ece_cru:.1%} em media)")
     ax1.plot(conf_r, acerto_r, "s-", color="#2ecc71",
-             label=f"recalibrado (isotonica)  (ECE {ece_calib:.3f})")
-    ax1.set_xlabel("probabilidade prevista de ser detrator")
-    ax1.set_ylabel("frequencia observada de detrator")
-    ax1.set_title(f"Curva de confiabilidade  |  Brier cru = {brier:.3f}")
+             label=f"corrigido (erra {ece_calib:.1%} em media)")
+    ax1.set_xlabel("risco que o modelo disse")
+    ax1.set_ylabel("risco que de fato aconteceu")
+    ax1.set_title("O modelo estava dizendo a verdade?")
     ax1.legend(fontsize=8, loc="upper left")
     ax1.grid(alpha=0.3)
     ax1.set_xlim(0, 1)
     ax1.set_ylim(0, 1)
 
     ax2.hist(proba_calib[y == 1], bins=30, alpha=0.6, color="#d95f02",
-             label="detrator real")
+             label="virou detrator de fato")
     ax2.hist(proba_calib[y == 0], bins=30, alpha=0.6, color="#1b9e77",
-             label="nao detrator real")
+             label="nao virou detrator")
     ax2.axvline(cfg.P_DETRATOR_ELEGIVEL, color="#2c3e50", ls=":",
-                label=f"corte elegibilidade {cfg.P_DETRATOR_ELEGIVEL}")
-    ax2.set_xlabel("probabilidade recalibrada de ser detrator")
+                label=f"corte de elegibilidade ({cfg.P_DETRATOR_ELEGIVEL:.0%} de risco)")
+    ax2.set_xlabel("risco ja corrigido")
     ax2.set_ylabel("clientes")
-    ax2.set_title("Distribuicao das probabilidades recalibradas")
+    ax2.set_title("Quantos clientes ficam de cada lado do corte")
     ax2.legend(fontsize=8)
     ax2.grid(alpha=0.3)
 
-    fig.suptitle(f"Modelo v1 - diagnostico de calibracao "
-                 f"(dataset real da Fase 1, n={len(y)})", fontsize=12)
+    fig.suptitle(f"Passo 1: o termometro de risco estava calibrado? "
+                 f"(dado real da Fase 1, n={len(y)} pedidos)", fontsize=12)
     fig.tight_layout()
     fig.savefig(destino, dpi=150, bbox_inches="tight")
     plt.close(fig)

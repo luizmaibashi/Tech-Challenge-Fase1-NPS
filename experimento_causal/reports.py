@@ -43,18 +43,17 @@ def fig_efeito_por_estrato(cen=None):
 
     fig, ax = plt.subplots(figsize=(8, 4.6))
     ax.errorbar(x - 0.09, est["delta"], yerr=Z * est["se"], fmt="o", color=C_TRAT,
-                capsize=4, label="Delta estimado (IC 95%)")
+                capsize=4, label="o que o metodo mediu (IC 95%)")
     ax.plot(x + 0.09, est["efeito_verdadeiro"], "s", color=C_VERD,
-            label="efeito verdadeiro plantado")
+            label="efeito real que plantamos")
     ax.axhline(cfg.BREAKEVEN_LIFT_OTIMISTA, ls="--", color="#888",
-               label=f"break-even otimista {cfg.BREAKEVEN_LIFT_OTIMISTA:.3f}")
+               label=f"linha de empate: {cfg.BREAKEVEN_LIFT_OTIMISTA:.1%} a mais de recompra")
     ax.set_xticks(x)
     ax.set_xticklabels([f"estrato {i}\n{f}" for i, f in
                         zip(est['estrato'], [f'[{a},{b})' for a, b in cfg.FAIXAS_P])])
-    ax.set_ylabel("lift na recompra em 90 dias")
-    ax.set_title("Uma replica do experimento: o IC 95% cobre o efeito verdadeiro\n"
-                 "em cada estrato (cenario heterogeneo). O nao-vies vem da validacao "
-                 "em 80 replicas.")
+    ax.set_ylabel("quanto a recompra em 90 dias aumentou")
+    ax.set_title("O metodo acha o efeito certo, mesmo quando ele muda por grupo\n"
+                 "(dados sinteticos: plantamos o efeito de proposito para testar o metodo)")
     ax.legend(fontsize=8)
     ax.grid(alpha=0.3, axis="y")
     _rotulo(ax)
@@ -70,20 +69,21 @@ def fig_validacao_estimador(n_rep=80):
     a1.bar(x, v["vies"], color=C_TRAT)
     a1.axhline(0, color="#333", lw=0.8)
     a1.set_xticks(x); a1.set_xticklabels([f"estrato {i}" for i in v["estrato"]])
-    a1.set_ylabel("vies (Delta medio - efeito verdadeiro)")
-    a1.set_title(f"Vies do estimador ({n_rep} replicas)")
+    a1.set_ylabel("erro medio (o que o metodo mediu - o real)")
+    a1.set_title(f"O metodo erra pra cima ou pra baixo, em media?\n"
+                 f"({n_rep} rodadas simuladas)")
     a1.set_ylim(-0.02, 0.02)
     a1.grid(alpha=0.3, axis="y")
 
     a2.bar(x, v["cobertura_ic95"], color=C_CTRL)
-    a2.axhline(0.95, color="#d95f02", ls="--", label="nominal 0,95")
+    a2.axhline(0.95, color="#d95f02", ls="--", label="deveria acertar 95% das vezes")
     a2.set_xticks(x); a2.set_xticklabels([f"estrato {i}" for i in v["estrato"]])
-    a2.set_ylabel("cobertura do IC 95%")
+    a2.set_ylabel("taxa de acerto do intervalo de confianca")
     a2.set_ylim(0.8, 1.0)
-    a2.set_title("Cobertura do IC 95%")
+    a2.set_title("Quando o metodo diz '95% de confianca', ele acerta?")
     a2.legend(fontsize=8); a2.grid(alpha=0.3, axis="y")
     _rotulo(a2)
-    fig.suptitle("Prova de que a maquina de analise esta correta", fontsize=12)
+    fig.suptitle("Passo 2: testamos a regua de medir antes de confiar nela", fontsize=12)
     fig.tight_layout()
     fig.savefig(cfg.REPORTS_DIR / "validacao_estimador.png", dpi=150, bbox_inches="tight")
     plt.close(fig)
@@ -111,11 +111,15 @@ def fig_decisao_superficie(cen=None):
         ax.fill_between(valores, lo, margem, color=cor, alpha=0.12)
     ax.axhline(0, color="#c3c2b7", lw=1)
     ax.axvspan(cfg.VALOR_CLIENTE_RETIDO_MIN, cfg.VALOR_CLIENTE_RETIDO_MAX,
-               color="#fab219", alpha=0.15, label="faixa REVALIDAR do valor do cliente")
-    ax.set_xlabel("valor de um cliente retido (R$)")
-    ax.set_ylabel("margem incremental por cliente tratado (R$)")
-    ax.set_title("A decisao de escalar depende do valor do cliente retido\n"
-                 f"(cenario rentavel; margem = Delta x valor - R$ {cfg.CUSTO_ACAO:.0f})")
+               color="#fab219", alpha=0.15, label="faixa real, ainda nao medida")
+    ax.text(0.015, 0.95, "lucro", transform=ax.transAxes, fontsize=9,
+            color="#52514e", ha="left", va="top")
+    ax.text(0.015, 0.05, "prejuizo", transform=ax.transAxes, fontsize=9,
+            color="#52514e", ha="left", va="bottom")
+    ax.set_xlabel("quanto vale reter esse cliente (R$)")
+    ax.set_ylabel("lucro por cliente que recebeu o cupom (R$)")
+    ax.set_title("O lucro por cliente depende de um numero que ainda nao medimos\n"
+                 f"(cenario rentavel; lucro = efeito x valor do cliente - R$ {cfg.CUSTO_ACAO:.0f} de custo)")
     ax.legend(fontsize=8)
     ax.grid(alpha=0.3)
     _rotulo(ax)
@@ -128,14 +132,14 @@ def fig_sensibilidade_p0():
     fig, ax = plt.subplots(figsize=(8, 4.4))
     for escopo, cor in [("total", C_TRAT), (0, C_CTRL)]:
         s = sensibilidade_p0(cfg.BREAKEVEN_LIFT_OTIMISTA, escopo=escopo)
-        rot = "toda a populacao elegivel" if escopo == "total" else "estrato 0 (o menor)"
+        rot = "toda a populacao elegivel" if escopo == "total" else "estrato 0 (o menor grupo)"
         ax.plot(s["p0"], s["duracao_meses"], "o-", color=cor, label=rot)
     ax.axhline(cfg.DURACAO_MAX_MESES, color="#d95f02", ls="--",
-               label=f"teto pre-registrado ({cfg.DURACAO_MAX_MESES} meses)")
-    ax.set_xlabel("p0 REVALIDAR - taxa de recompra 90d sem acao")
-    ax.set_ylabel("duracao do experimento (meses)")
-    ax.set_title("Duracao para detectar um lift no break-even otimista (0,086)\n"
-                 "vs a taxa-base de recompra, que ainda nao foi medida")
+               label=f"teto do experimento ({cfg.DURACAO_MAX_MESES} meses)")
+    ax.set_xlabel("taxa de recompra sem nenhuma acao (ainda nao medida)")
+    ax.set_ylabel("tempo de teste necessario (meses)")
+    ax.set_title("Quanto tempo o teste levaria, dependendo de quantos clientes\n"
+                 "ja recompram sozinhos, sem receber cupom nenhum")
     ax.legend(fontsize=8)
     ax.grid(alpha=0.3)
     _rotulo(ax)
