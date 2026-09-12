@@ -7,9 +7,9 @@
 [![CRISP-DM](https://img.shields.io/badge/Methodology-CRISP--DM-success?style=flat-square)](#)
 [![FIAP](https://img.shields.io/badge/FIAP-Pós--Graduação%20AI%20Scientist-blueviolet?style=flat-square)](#)
 
-> **O Foco deste Projeto: Explorar e Traduzir Dados em Estratégia.** Este projeto nasceu com foco em modelagem avançada e MLOps, mas foi **recalibrado** para destacar o que realmente importa na Fase 1: o entendimento do problema de negócio através de **Análise Exploratória de Dados (EDA)**, storytelling executivo e a tradução técnica para impacto financeiro. A modelagem atua como um forte complemento analítico, e não como o eixo principal.
+> **O foco deste projeto: explorar e traduzir dados em estratégia.** Ele nasceu com foco em modelagem avançada e MLOps, mas foi recalibrado para destacar o que realmente importa na Fase 1: entender o problema de negócio através de Análise Exploratória de Dados (EDA), storytelling executivo e tradução técnica para impacto financeiro. A modelagem é um complemento analítico forte, não o eixo principal.
 
-> **Atualização (setembro/2026):** o projeto passou por uma **refatoração completa** de engenharia — benchmark real de modelos, testes de unidade, explicabilidade (SHAP), monitor de drift real, threshold calibrado por custo. Ver [§ 9](#9-refatoração-completa-setembro2026) para o resumo e `docs/wayfinder/tech_challenge_nps/` para o registro de cada decisão técnica.
+> **Atualização (setembro/2026):** o projeto passou por uma refatoração completa de engenharia: benchmark real de modelos, testes de unidade, explicabilidade (SHAP), monitor de drift real, threshold calibrado por custo. Ver [§ 9](#9-refatoração-completa-setembro2026) para o resumo e o motivo de cada mudança, e `docs/wayfinder/tech_challenge_nps/` para o registro decisão por decisão.
 
 ---
 
@@ -30,9 +30,9 @@
 
 ## 1. O Problema de Negócio
 
-Um e-commerce nacional em forte expansão passou a enfrentar uma crise sistêmica de experiência: o **NPS médio desabou para 4.38/10**, com **74,04% dos clientes classificados como Detratores** (classificação NPS clássica: nota 0–6).
+Um e-commerce nacional em forte expansão passou a enfrentar uma crise sistêmica de experiência: o **NPS médio desabou para 4.38/10**, com **74,04% dos clientes classificados como Detratores** (classificação NPS clássica: nota 0 a 6).
 
-A empresa só coletava o NPS **depois** do encerramento da jornada de compra, quando o dano já estava feito. Nossa missão: construir um sistema preditivo capaz de **antecipar a detratação** com base em dados operacionais, disparando ações profiláticas antes da pesquisa.
+O problema não era só a nota baixa, era o momento em que ela chegava. A empresa só media o NPS depois do encerramento da jornada de compra, quando o cliente já tinha decidido virar detrator e o dano já estava feito. Não dava pra reagir, só documentar o estrago. A missão virou construir um sistema preditivo capaz de antecipar a detratação com base em dados operacionais, disparando ações profiláticas antes da pesquisa chegar.
 
 > *"Quais fatores operacionais destroem a satisfação do cliente, e como prever isso antes do cliente responder?"*
 
@@ -40,32 +40,34 @@ A empresa só coletava o NPS **depois** do encerramento da jornada de compra, qu
 
 ## 2. O Que Torna Esse Projeto Diferente
 
-A maioria dos projetos de ML em cursos entrega um modelo treinado e uma acurácia. Este projeto vai além em dimensões críticas que o diferenciam:
+A maioria dos projetos de ML em cursos entrega um modelo treinado e uma acurácia. Este projeto foi além em alguns pontos que valem destacar.
 
 ### 1. Data Leakage: Detectado, Eliminado e Medido Empiricamente
 
-Variáveis aparentemente poderosas (`csat_internal_score`, `repeat_purchase_30d`) foram identificadas como **variáveis futuras**: elas só existem após a experiência do cliente, não no momento da predição.
+Duas variáveis pareciam boas demais pra serem verdade: `csat_internal_score` e `repeat_purchase_30d` tinham correlação forte com o NPS. O motivo era simples e traiçoeiro: elas só existem depois da experiência do cliente, não no momento em que a predição precisa ser feita. Usá-las seria treinar o modelo pra "prever" algo que, na produção real, ainda nem aconteceu.
 
-**Impacto medido empiricamente (CV 5-fold, não estimativa):**
+Pra confirmar que o problema era real e não só teórico, medi o tamanho da ilusão:
+
 ```
 F1-Score SEM leakage (correto, modelo em produção): 0.5687
 F1-Score COM leakage (errado, apenas para demonstração): 0.7886
 Ganho ARTIFICIAL: +0.22 pontos (não existe em produção)
 ```
-> Um modelo com leakage quebraria completamente no go-live. Identificar isso — e medir o tamanho exato da ilusão — é o que separa um cientista de dados de um "ajustador de parâmetros".
+
+> Um modelo com leakage quebraria completamente no go-live. Identificar isso, e medir o tamanho exato da ilusão, é o que separa um cientista de dados de um "ajustador de parâmetros".
 
 ### 2. A Armadilha da Acurácia em Dados Desbalanceados
 
-Com 74% de Detratores, um modelo que sempre prevê "Detrator" teria **74% de Acurácia**: parece razoável, mas é inútil.
+Com 74% de Detratores, um modelo preguiçoso que sempre prevê "Detrator" já acerta 74% das vezes. Parece bom no relatório e é completamente inútil no negócio, porque nunca identifica quem é Promotor ou Neutro.
 
-**Nossa solução:**
-- Métrica principal: `F1-Score macro` (trata todas as classes igualmente)
+Pra não cair nessa armadilha, três escolhas deliberadas:
+- Métrica principal: `F1-Score macro` (trata todas as classes igualmente, não deixa a classe majoritária mascarar o resultado)
 - `class_weight='balanced'` para penalizar erros nas classes minoritárias
-- **Threshold de decisão calibrado por custo real de negócio** (não pelo corte padrão de 0.5) — ver § 4
+- **Threshold de decisão calibrado por custo real de negócio**, não pelo corte padrão de 0.5 (o raciocínio completo está no § 4)
 
 ### 3. Benchmark Real: 3 Modelos, CV 5-Fold, Sem Achismo
 
-O modelo final (Random Forest) não foi escolhido "porque sim" — foi comparado contra Gradient Boosting e Logistic Regression, com validação cruzada 5-fold estratificada, **no mesmo conjunto de 20 features que está em produção** (sem região) e com o `StandardScaler` fitado dentro de cada fold:
+Random Forest não foi a escolha "porque sim". Comparei contra Gradient Boosting e Logistic Regression, com validação cruzada 5-fold estratificada, **no mesmo conjunto de 20 features que está em produção** (sem região) e com o `StandardScaler` fitado dentro de cada fold, para nenhum modelo levar vantagem por vazamento entre treino e validação:
 
 | Modelo | F1-Macro (CV 5-fold) |
 |---|---|
@@ -73,17 +75,17 @@ O modelo final (Random Forest) não foi escolhido "porque sim" — foi comparado
 | Logistic Regression | 0,5491 ± 0,0464 |
 | Gradient Boosting | 0,5463 ± 0,0358 |
 
-A vantagem da RF é real mas modesta (fica dentro de um desvio-padrão da 2ª colocada) — ela vence, não domina. Resultado versionado em `reports/benchmark_results.csv` e `reports/cv_scores.csv`, reproduzível com `python benchmark_modelos.py`.
+A vantagem da RF é real, mas modesta: fica dentro de um desvio-padrão da 2ª colocada. Ela vence por pouco, não domina, e vale dizer isso com clareza em vez de vender a diferença como maior do que é. Resultado versionado em `reports/benchmark_results.csv` e `reports/cv_scores.csv`, reproduzível com `python benchmark_modelos.py`.
 
-O modelo servido (`models/v1/pipeline_completo.pkl`, treino/holdout único 80/20) marca **F1-Macro 0,5427 / Recall de Detrator 0,8108** no seu conjunto de teste de 500 pedidos — abaixo da média de CV porque um holdout único de 500 linhas é mais ruidoso que a média de 5 folds. Ambos os números estão em `models/v1/metadata.json`.
+O modelo servido (`models/v1/pipeline_completo.pkl`, treino/holdout único 80/20) marca **F1-Macro 0,5427 / Recall de Detrator 0,8108** no seu conjunto de teste de 500 pedidos, abaixo da média de CV porque um holdout único de 500 linhas é mais ruidoso que a média de 5 folds. Ambos os números estão em `models/v1/metadata.json`.
 
 ### 4. Feature Engineering com Valor Preditivo Real
 
-7 novas variáveis criadas a partir das colunas operacionais originais (o modelo de produção usa 13 originais + 7 de engenharia = 20 features), com intuição de negócio clara:
+7 variáveis novas criadas a partir das colunas operacionais originais (o modelo de produção usa 13 originais + 7 de engenharia = 20 features), cada uma respondendo a uma pergunta de negócio concreta:
 
 | Feature Criada | Fórmula | Por Que Importa |
 |---|---|---|
-| `ratio_atraso_entrega` | `delay / (prazo + 1)` | 3 dias em entrega expressa ≠ 3 dias em entrega padrão |
+| `ratio_atraso_entrega` | `delay / (prazo + 1)` | 3 dias em entrega expressa não pesam igual a 3 dias em entrega padrão |
 | `score_logistica` | `-delay×2 - tentativas + pontual×5` | Score composto da experiência logística |
 | `intensidade_problema` | `SAC × resolução × (reclamações+1)` | Cascata de sofrimento do cliente |
 | `entrega_no_prazo` | `flag binária` | Pontualidade como variável direta |
@@ -91,11 +93,13 @@ O modelo servido (`models/v1/pipeline_completo.pkl`, treino/holdout único 80/20
 | `pct_desconto` | `desconto / valor` | Desconto relativo, não absoluto |
 | `cliente_longa_data` | `tenure > 60 meses` | Clientes fiéis têm tolerâncias diferentes |
 
-Cobertas por **26 testes de unidade** (`tests/test_utils.py`) — cada fórmula validada isoladamente, incluindo casos de fronteira e um bug real de divisão-por-zero encontrado e corrigido durante a refatoração (`items_quantity=0` não é mais um `inf` silencioso).
+Cobertas por **26 testes de unidade** (`tests/test_utils.py`), cada fórmula validada isoladamente, incluindo casos de fronteira. Um deles pegou um bug real de divisão por zero durante a refatoração: `items_quantity=0` não vira mais um `inf` silencioso, que teria quebrado a predição sem avisar ninguém.
 
 ### 5. Deploy via Pipeline Sklearn (Sem Training-Serving Skew)
 
-O modelo final foi encapsulado em um `sklearn.Pipeline`, garantindo que o `StandardScaler` seja aplicado automaticamente aos novos dados. A lógica de feature engineering vive em um único módulo compartilhado (`utils.py:criar_features()`), usado identicamente por `api.py`, `app/deploy.py`, `train_pipeline.py` e `monitor.py` — elimina o risco clássico de a API e o Streamlit divergirem silenciosamente (achado real corrigido nesta refatoração: a API tinha uma heurística hardcoded que o Streamlit não tinha).
+O modelo final foi encapsulado num `sklearn.Pipeline`, o que garante que o `StandardScaler` seja aplicado automaticamente aos dados novos. A lógica de feature engineering vive num único módulo compartilhado (`utils.py:criar_features()`), usado identicamente por `api.py`, `app/deploy.py`, `train_pipeline.py` e `monitor.py`.
+
+Isso não é só organização de código. Durante a refatoração encontrei uma heurística hardcoded na API que o Streamlit não tinha: mesmo input, resposta diferente dependendo de qual porta de entrada o cliente usasse. Centralizar a lógica elimina esse risco pela raiz, em vez de só corrigir o sintoma que apareceu.
 
 ---
 
@@ -103,9 +107,9 @@ O modelo final foi encapsulado em um `sklearn.Pipeline`, garantindo que o `Stand
 
 ### O Inimigo Número 1 Identificado: Atraso Logístico
 
-- **Impacto Comprovado**: Clientes que receberam no prazo tiveram um NPS médio de 6,86. Clientes com *qualquer dia de atraso* despencaram para uma média de 4,07 — diferença de ~2,8 pontos. Por dia adicional de atraso, a regressão linear indica ~1,03 ponto de NPS perdido.
-- **Abrangência Nacional**: as 5 regiões do Brasil têm distribuição praticamente uniforme (18,7%–20,8%) e correlação com NPS estatisticamente irrelevante — o problema não é regional, é sistêmico na malha logística.
-- **Data Leakage (O Falso Positivo)**: `repeat_purchase_30d` e `csat_internal_score` tinham correlação forte (+0,57 e +0,56) com o NPS, mas no mundo real não podem ser usadas para predição — são determinadas depois do momento da entrega.
+- **Impacto Comprovado**: clientes que receberam no prazo tiveram NPS médio de 6,86. Clientes com *qualquer dia de atraso* despencaram para uma média de 4,07, uma diferença de quase 2,8 pontos. Por dia adicional de atraso, a regressão linear indica cerca de 1,03 ponto de NPS perdido.
+- **Abrangência Nacional**: as 5 regiões do Brasil têm distribuição praticamente uniforme (18,7% a 20,8%) e correlação com NPS estatisticamente irrelevante. Isso descartou a hipótese inicial de que o problema fosse regional: é sistêmico na malha logística como um todo.
+- **Data Leakage (o falso positivo)**: `repeat_purchase_30d` e `csat_internal_score` tinham correlação forte (+0,57 e +0,56) com o NPS, mas no mundo real não podem ser usadas para predição, porque são determinadas depois do momento da entrega.
 
 ### Ranking Real de Drivers (correlação com NPS, medida)
 
@@ -125,26 +129,26 @@ Análise completa em `reports/eda_desafio_nps.md` (9 seções) e `reports/dicion
 
 ### Decisão do Modelo
 
-**Random Forest** (`n_estimators=100, max_depth=7, class_weight='balanced'`) lidera o benchmark de 3 candidatos por F1-Macro em CV 5-fold (§ 2.3). O objetivo do modelo não é acertar "a nota exata que o cliente daria" — é uma **ferramenta de triagem**: errar o mínimo possível na classificação de Detratores, mesmo sacrificando um pouco de acurácia global, porque deixar um cliente prestes a se tornar detrator sem amparo custa mais caro ao cofre da empresa do que contatar preventivamente um cliente neutro.
+**Random Forest** (`n_estimators=100, max_depth=7, class_weight='balanced'`) lidera o benchmark de 3 candidatos por F1-Macro em CV 5-fold (§ 2.3). Mas a escolha do algoritmo não conta a história toda: o objetivo aqui não é acertar a nota exata que o cliente daria, é funcionar como **ferramenta de triagem**. Errar o mínimo possível na classificação de Detratores importa mais do que a acurácia global, porque deixar um cliente prestes a virar detrator sem amparo custa mais caro ao cofre da empresa do que contatar preventivamente um cliente neutro que nem precisava de atenção.
 
 ### Threshold Calibrado por Custo Real (não o corte padrão de 0.5)
 
-A decisão de **disparar ou não a ação profilática** (cupom, CS VIP) usa um threshold de probabilidade calibrado pela matriz de custo real do negócio — não o corte padrão de classificação:
+Essa mesma lógica de custo assimétrico definiu o threshold que dispara ou não a ação profilática (cupom, CS VIP). Em vez do corte padrão de classificação (0,5), calibrei o ponto de corte pela matriz de custo real do negócio:
 
 | Threshold | Falsos Positivos | Falsos Negativos | Recall Detrator | Custo Mensal Estimado |
 |---|---|---|---|---|
 | 0,50 (padrão) | 189 | 310 | 83,3% | R$ 43.645,00 |
 | **0,19 (calibrado por custo)** | 486 | 29 | **98,4%** | **R$ 18.132,50** |
 
-**Por que o corte é tão mais baixo que 0,5:** deixar um Detrator sem ação custa ~R$ 122,50 (oportunidade de retenção perdida); agir sem necessidade custa R$ 30 (cupom). A razão de custo é 4,08× — vale muito mais errar por excesso de zelo do que por omissão. Metodologia completa (probabilidades out-of-fold via CV, sem vazamento entre calibração e treino) em `threshold_calibration.py` e `reports/PROBLEM.md` § 8.
+O raciocínio por trás do 0,19: deixar um Detrator sem ação custa cerca de R$ 122,50 em oportunidade de retenção perdida. Agir sem necessidade custa R$ 30, o valor do cupom. A razão entre os dois é 4,08 vezes, então vale muito mais errar por excesso de zelo do que por omissão. Um corte de 0,5 ignora essa assimetria e trata os dois tipos de erro como se custassem o mesmo, o que na prática deixa dinheiro e clientes na mesa. Metodologia completa (probabilidades out-of-fold via CV, sem vazamento entre calibração e treino) em `threshold_calibration.py` e `reports/PROBLEM.md` § 8.
 
 ### Explicabilidade: SHAP (não só Feature Importance nativa)
 
-Gini importance (nativa da Random Forest) só diz "isso importa em geral". Para o time de Customer Success agir sobre um cliente específico, é preciso responder "**por que esse cliente** foi classificado como Detrator?" — é isso que o SHAP entrega:
+A importância nativa da Random Forest (Gini) só responde "o que importa em geral". Isso não ajuda o time de Customer Success a agir sobre um caso específico: eles precisam saber por que aquele cliente ali foi classificado como Detrator. É essa pergunta que o SHAP responde:
 
 ![SHAP Summary](reports/shap_summary.png)
 
-Exemplo de explicação individual (`reports/shap_waterfall_detrator.png`): para um cliente com 4 dias de atraso e 3 reclamações, o modelo decompõe exatamente quanto cada variável empurrou a predição — `delivery_delay_days` contribuiu +0,23, `score_logistica` +0,19, sobre uma base de 0,335, chegando a uma probabilidade final de 0,867 de ser Detrator.
+Um exemplo concreto (`reports/shap_waterfall_detrator.png`): para um cliente com 4 dias de atraso e 3 reclamações, o modelo decompõe exatamente quanto cada variável empurrou a predição. `delivery_delay_days` contribuiu +0,23, `score_logistica` +0,19, sobre uma base de 0,335, chegando a uma probabilidade final de 0,867 de ser Detrator. Isso dá ao time um motivo acionável, não só um rótulo.
 
 Gerado por `shap_analysis.py` (`TreeExplainer`, rápido para modelos de árvore).
 
@@ -177,9 +181,9 @@ Gerado por `shap_analysis.py` (`TreeExplainer`, rápido para modelos de árvore)
 
 As taxas de FP, FN e TP vêm de `reports/threshold_calibration.json` (ponto de operação em 0,19). O simulador trunca cada etapa para representar pessoas inteiras: custo = ações × R$ 30; receita = retidos × R$ 350.
 
-**Comparação que realmente importa — threshold calibrado vs threshold ingênuo:** usar o corte padrão (0,5) em vez do calibrado por custo (0,19) custaria **R$ 25.512,50/mês a mais** — é essa a economia direta de ter feito a calibração corretamente, não uma estimativa, um número medido com CV.
+A comparação que importa de verdade é threshold calibrado contra threshold ingênuo: usar o corte padrão (0,5) em vez do calibrado por custo (0,19) custaria **R$ 25.512,50/mês a mais**. É a economia direta de ter calibrado corretamente, medida com CV, não uma suposição de planilha.
 
-> **Perspectiva Crítica de Negócios:** a simulação reconhece os limites do LTV de e-commerce — retenção promovida por cupom sofre variação por cohort e sazonalidade. O número relevante para decisão executiva não é o ROI absoluto (sensível às premissas de retenção/LTV, que a direção deve validar com dados reais de CRM), mas a comparação relativa entre estratégias de threshold, que é robusta a essas incertezas porque compara o mesmo modelo em dois pontos de operação.
+> **Perspectiva Crítica de Negócios:** a simulação reconhece os limites do LTV de e-commerce, retenção promovida por cupom varia por cohort e sazonalidade. O que é robusto a essas incertezas é a comparação relativa entre estratégias de threshold, porque ela compara o mesmo modelo em dois pontos de operação diferentes. O ROI absoluto depende de premissas de retenção e LTV que a direção ainda precisa validar com dados reais de CRM.
 
 ---
 
@@ -191,7 +195,7 @@ O Streamlit continua no repositório como referência local. A demo pública con
 
 ### Aba 1: "Predição Interativa" (Tempo Real)
 - Formulário lateral com os parâmetros operacionais do pedido
-- Painel de flags de risco (Ratio de Atraso, Score Logístico, Intensidade do Problema) — lidas direto da saída de `criar_features()`, sem recálculo à mão
+- Painel de flags de risco (Ratio de Atraso, Score Logístico, Intensidade do Problema), lidas direto da saída de `criar_features()`, sem recálculo à mão
 - Resultado visual com probabilidades por classe (Detrator / Neutro / Promotor)
 - **Ação recomendada** com base na predição. A demo mostra as quatro trilhas possíveis (cupom, escalada para CS VIP, referral, alerta logístico); a continuidade causal (§ 10) escolhe **uma** para provar valor primeiro
 
@@ -246,7 +250,7 @@ tech_challenge_nps/
 │       ├── metadata.json               # Métricas e parâmetros
 │       └── train_reference_sample.csv  # Baseline para o monitor de drift
 ├── notebooks/
-│   ├── Tech_challenge_fase1.ipynb      # Processo exploratório CRISP-DM (didático — ver § 9)
+│   ├── Tech_challenge_fase1.ipynb      # Processo exploratório CRISP-DM (didático, ver § 9)
 │   └── 02_experimento_causal.ipynb     # Protótipo do arco causal (§ 10, dados sintéticos)
 ├── data/
 │   └── desafio_nps_fase_1.csv
@@ -263,7 +267,7 @@ tech_challenge_nps/
 │   ├── benchmark_results.csv / cv_scores.csv
 │   ├── shap_summary.png / shap_waterfall_detrator.png
 │   └── threshold_calibration.json / threshold_grid.csv / threshold_custo.png
-├── experimento_causal/                 # § 10 — arco de inferência causal (tickets 0011–0016)
+├── experimento_causal/                 # § 10: arco de inferência causal (tickets 0011 a 0016)
 │   ├── config.py                       # parâmetros do desenho (espelha docs/spec/0002)
 │   ├── calibracao_modelo.py            # pré-requisito: reliability + scorer recalibrado
 │   ├── dgp.py                          # gerador sintético (desfechos potenciais Y0/Y1)
@@ -340,36 +344,36 @@ python api.py
 
 ## 9. Refatoração Completa (Setembro/2026)
 
-O projeto original (abril/2026) tinha um roadmap de MLOps marcado como "concluído" que, ao ser auditado, revelou lacunas reais — não por má-fé, mas pelo padrão comum de "peça planejada ≠ peça entregue". Uma refatoração completa em setembro/2026 resolveu 10 achados, documentados individualmente em `docs/wayfinder/tech_challenge_nps/`:
+O projeto original (abril/2026) tinha um roadmap de MLOps marcado como "concluído". Quando resolvi auditar de verdade o que tinha sido entregue, apareceram lacunas reais. Não foi má-fé de ninguém, é o padrão comum de "peça planejada" virar, sem querer, "peça marcada como pronta" antes de estar pronta de fato. A refatoração completa em setembro/2026 resolveu 10 achados, documentados individualmente em `docs/wayfinder/tech_challenge_nps/`:
 
 | # | Achado | Resolução |
 |---|---|---|
 | 0001 | Gate CRISP-DM (EDA/dicionário) nunca existia | `reports/eda_desafio_nps.md` + `reports/dicionario_desafio_nps.md` |
-| 0002 | API tinha heurística hardcoded que o Streamlit não tinha — mesmo input, respostas diferentes | Heurística removida; validada estatisticamente antes (errava 39% dos casos que cobria) |
-| 0003 | Threshold de decisão nunca calibrado por custo | `threshold_calibration.py` — threshold 0,19, economia R$ 25.512,50/mês |
+| 0002 | API tinha heurística hardcoded que o Streamlit não tinha (mesmo input, respostas diferentes) | Heurística removida; validada estatisticamente antes, errava 39% dos casos que cobria |
+| 0003 | Threshold de decisão nunca calibrado por custo | `threshold_calibration.py`: threshold 0,19, economia de R$ 25.512,50/mês |
 | 0004 | `monitor.py` decorativo (threshold arbitrário, sem teste estatístico) | KS-test real + correção de comparações múltiplas (Holm) |
-| 0005 | Zero testes de unidade | 26 testes (`tests/test_utils.py`), incluindo um bug real de divisão-por-zero corrigido |
-| 0006 | `requirements.txt` sem versões travadas (risco alto — serializa `.pkl`) | Todas as dependências pinadas com `==` |
-| 0007 | SHAP prometido no roadmap, nunca implementado | `shap_analysis.py` — summary plot + explicação individual |
+| 0005 | Zero testes de unidade | 26 testes (`tests/test_utils.py`), incluindo um bug real de divisão por zero corrigido |
+| 0006 | `requirements.txt` sem versões travadas (risco alto, serializa `.pkl`) | Todas as dependências pinadas com `==` |
+| 0007 | SHAP prometido no roadmap, nunca implementado | `shap_analysis.py`: summary plot + explicação individual |
 | 0008 | Modelo duplicado órfão no repositório | Removido (nunca era referenciado por nenhum código) |
 | 0009 | Modelo nunca comparado contra alternativas | Benchmark real: RF vs Gradient Boosting vs Logistic Regression, CV 5-fold |
 | 0010 | Notebook original: fonte de verdade ou material morto? | Mantido como documento didático/exploratório; inconsistência interna corrigida (escolhia um modelo na comparação e usava outro na produção) |
 
-**Também corrigido durante a auditoria:** o relatório de EDA original tinha estatísticas erradas em 9 variáveis — causa raiz foi o `df.describe()` truncando a exibição de um dataset com muitas colunas no terminal, preenchendo números de colunas não visualizadas. Recalculado e conferido célula a célula contra o dataset real.
+Também corrigido durante a auditoria: o relatório de EDA original tinha estatísticas erradas em 9 variáveis. A causa raiz foi banal: o `df.describe()` truncava a exibição de um dataset com muitas colunas no terminal, e os números das colunas fora da tela acabavam preenchidos errado. Recalculei e conferi célula a célula contra o dataset real.
 
 ---
 
 ## 10. Experimentação Causal (continuidade)
 
-O modelo da Fase 1 responde *"quem vai virar detrator?"*. Ele **não prova** que cupom, atendimento prioritário ou correção logística mudam o desfecho — e o ROI de ~222% da § 5 depende de premissas de retenção e LTV que ninguém mediu.
+O modelo da Fase 1 responde *"quem vai virar detrator?"*. Ele **não prova** que cupom, atendimento prioritário ou correção logística mudam o desfecho, e o ROI de ~222% da § 5 depende de premissas de retenção e LTV que ninguém mediu de verdade ainda.
 
-A continuidade trata isso como problema de inferência **causal**: o modelo vira o critério de elegibilidade e a evidência de valor vem de um experimento controlado A/B. Como este é um projeto de portfólio (sem e-commerce, CRM ou cliente real), o entregável é o **desenho** mais um **protótipo de método com dados sintéticos**.
+A continuidade trata isso como problema de inferência **causal**: o modelo vira o critério de elegibilidade, e a evidência de valor precisa vir de um experimento controlado A/B. Como este é um projeto de portfólio (sem e-commerce, CRM ou cliente real), o entregável é o **desenho** do experimento mais um **protótipo de método com dados sintéticos**.
 
 - Decisão e desenho: [`docs/adr/0002-arco-de-experimentacao-causal.md`](docs/adr/0002-arco-de-experimentacao-causal.md) e [`docs/spec/0002-experimento-causal.md`](docs/spec/0002-experimento-causal.md)
 - Protótipo: [`notebooks/02_experimento_causal.ipynb`](notebooks/02_experimento_causal.ipynb) e o pacote `experimento_causal/`
-- Achado do pré-requisito de calibração: o modelo v1 subestima risco em toda a faixa (ECE 0,10 → 0,01 com recalibração isotônica); a seletividade dele é modesta porque, com falha de entrega, a maioria dos clientes vira detrator de fato
+- Achado do pré-requisito de calibração: o modelo v1 subestima risco em toda a faixa (ECE 0,10 → 0,01 com recalibração isotônica). A seletividade dele é modesta porque, quando há falha de entrega, a maioria dos clientes vira detrator de fato, então sobra pouca margem para o modelo discriminar quem vai e quem não vai
 
-> **Escopo negativo:** o protótipo **não afirma** que o cupom funciona nem cita ROI medido. O efeito é escolhido no gerador; o que se demonstra é a competência de método — desenhar o A/B, recuperar o efeito com o IC certo, propagar a incerteza do valor do cliente na decisão e dimensionar contra um teto de calendário. Toda saída leva o rótulo "dados sintéticos, demonstração de método".
+> **Escopo negativo:** o protótipo **não afirma** que o cupom funciona, nem cita ROI medido. O efeito é escolhido no gerador; o que se demonstra é a competência de método: desenhar o A/B, recuperar o efeito com o IC certo, propagar a incerteza do valor do cliente na decisão e dimensionar contra um teto de calendário. Toda saída leva o rótulo "dados sintéticos, demonstração de método".
 
 ---
 
